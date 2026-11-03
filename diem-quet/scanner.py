@@ -60,8 +60,11 @@ def validate_input(product_code: str, txn_type: str, quantity_str: str):
     except ValueError:
         return False, "INVALID_INPUT: Số lượng phải là số nguyên!", None
 
-    if quantity < 1 or quantity > 10000:
-        return False, "INVALID_INPUT: Số lượng phải nằm trong khoảng từ 1 đến 10000!", None
+    if quantity <= 0:
+        return False, "INVALID_INPUT: Số lượng phải là số nguyên dương lớn hơn 0!", None
+
+    if quantity > 10000:
+        return False, "INVALID_INPUT: Số lượng không được vượt quá 10000!", None
 
     return True, "OK", (product_code, txn_type, quantity)
 
