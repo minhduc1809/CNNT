@@ -46,7 +46,7 @@ def generate_txn_id(scan_point_id: str, seq_no: int) -> str:
 
 
 def validate_input(product_code: str, txn_type: str, quantity_str: str):
-    """Kiểm tra đầu vào tại điểm quét theo Giao ước API của SV1."""
+    """Kiểm tra đầu vào tại điểm quét theo chuẩn SV1."""
     product_code = product_code.strip().upper()
     if not product_code:
         return False, "INVALID_INPUT: Mã hàng (product_code) không được để trống!", None
@@ -88,7 +88,7 @@ def save_queue(queue_file: str, items: list):
 
 
 def enqueue_transaction(queue_file: str, record: dict):
-    """Ghi giao dịch vào file hàng đợi cục bộ trước khi gửi qua mạng."""
+    """Ghi giao dịch vào file hàng đợi cục bộ trước khi gửi qua mạng (CV03)."""
     items = load_queue(queue_file)
     items.append(record)
     save_queue(queue_file, items)
@@ -97,7 +97,8 @@ def enqueue_transaction(queue_file: str, record: dict):
 def update_queue_status(queue_file: str, txn_id: str, new_status: str, note: str = ""):
     items = load_queue(queue_file)
     for item in items:
-        if item.get("payload", {}).get("txn_id") == txn_id:
+        p = item.get("payload", {})
+        if p.get("txn_id") == txn_id:
             item["status"] = new_status
             item["updated_at"] = datetime.now().isoformat()
             if note:
@@ -106,7 +107,7 @@ def update_queue_status(queue_file: str, txn_id: str, new_status: str, note: str
 
 
 def login_api(base_url: str, username: str, password: str, timeout: int) -> str:
-    """Đăng nhập lấy Bearer Token theo Giao ước API của SV1."""
+    """Đăng nhập lấy Bearer Token theo giao ước SV1."""
     try:
         resp = requests.post(
             f"{base_url}/api/login",
@@ -118,7 +119,7 @@ def login_api(base_url: str, username: str, password: str, timeout: int) -> str:
             return data.get("token") or data.get("access_token") or username
     except Exception:
         pass
-    # Nếu máy chủ chưa mở endpoint /api/login hoặc đang mất mạng, dùng token tạm
+    # Nếu máy chủ chưa bật /api/login hoặc đang ngắt mạng, dùng token tạm
     return f"token-{username}"
 
 
@@ -167,7 +168,7 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
             )
             latency_ms = round((time.time() - start_time) * 1000, 2)
 
-            # 1. Thành công (200 hoặc 201)
+            # 1. Thành công (200 hoặc 201 Created)
             if resp.status_code in (200, 201):
                 update_queue_status(queue_file, txn_id, "DA_XAC_NHAN", f"HTTP {resp.status_code}")
                 write_log(
@@ -177,8 +178,8 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
                 verify_saved_on_server(base_url, txn_id, headers, timeout, log_file)
                 return True
 
-            # 2. Giao dịch trùng (409 DUPLICATE_TXN) -> Coi là đã lưu, không gửi lại nữa
-            if resp.status_code == 409:
+            # 2. Giao dịch trùng (409 DUPLICATE_TXN)
+            if resp.status_code == 409 or (resp.status_code == 400 and "da ton tai" in resp.text.lower()):
                 update_queue_status(queue_file, txn_id, "DA_XAC_NHAN", "409 DUPLICATE_TXN")
                 write_log(
                     log_file,
@@ -230,6 +231,18 @@ def flush_pending_queue(config: dict, token: str):
         send_with_retry(config, item["payload"], token)
 
 
+def build_payload(txn_id: str, product_code: str, txn_type: str, quantity: int, scan_point_id: str) -> dict:
+    """Tạo payload chuẩn 100% theo Giao ước API của SV1."""
+    return {
+        "txn_id": txn_id,
+        "product_code": product_code,
+        "txn_type": txn_type,
+        "quantity": quantity,
+        "scan_point_id": scan_point_id,
+        "client_time": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+
+
 def main():
     if len(sys.argv) < 2:
         print("Cách chạy: python scanner.py <đường_dẫn_file_config.json>")
@@ -246,8 +259,8 @@ def main():
     print(f" Máy chủ đích     : {config['api_base_url']}")
     print("=" * 60)
 
-    username = input("Đăng nhập - Nhập tài khoản (mặc định nv01): ").strip() or "nv01"
-    password = input("Đăng nhập - Nhập mật khẩu (mặc định Kho@2026): ").strip() or "Kho@2026"
+    username = input("Đăng nhập - Tài khoản (mặc định nv01): ").strip() or "nv01"
+    password = input("Đăng nhập - Mật khẩu (mặc định Kho@2026): ").strip() or "Kho@2026"
     token = login_api(config["api_base_url"], username, password, config.get("timeout_seconds", 5))
     write_log(log_file, f"Khởi động {scan_point_id} với người dùng '{username}'.")
 
@@ -271,14 +284,7 @@ def main():
             p_code = input("Nhập mã hàng (product_code, VD: SP001): ").strip().upper()
             t_type = input("Loại giao dịch (NHAP/XUAT): ").strip().upper()
             qty = int(input("Số lượng: ").strip())
-            payload = {
-                "txn_id": dup_txn,
-                "product_code": p_code,
-                "txn_type": t_type,
-                "quantity": qty,
-                "scan_point_id": scan_point_id,
-                "client_time": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-            }
+            payload = build_payload(dup_txn, p_code, t_type, qty, scan_point_id)
             print("\n[JSON GỬI LẶP KT2]:", json.dumps(payload, ensure_ascii=False, indent=2))
             send_with_retry(config, payload, token)
         elif choice == "1":
@@ -295,15 +301,7 @@ def main():
             seq_no = get_next_seq_no(config["seq_file"])
             txn_id = generate_txn_id(scan_point_id, seq_no)
 
-            # Payload chuẩn 100% theo Giao ước API của SV1
-            payload = {
-                "txn_id": txn_id,
-                "product_code": product_code,
-                "txn_type": txn_type,
-                "quantity": quantity,
-                "scan_point_id": scan_point_id,
-                "client_time": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-            }
+            payload = build_payload(txn_id, product_code, txn_type, quantity, scan_point_id)
 
             print("\n[GIAO DỊCH JSON ĐÃ SINH]:")
             print(json.dumps(payload, indent=2, ensure_ascii=False))
