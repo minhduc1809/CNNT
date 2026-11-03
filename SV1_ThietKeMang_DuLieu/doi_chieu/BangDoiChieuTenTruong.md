@@ -1,54 +1,54 @@
 # Bảng đối chiếu tên trường – Đề tài 22
 
-- Thời điểm chạy: **2026-10-26 21:18:39**
+- Thời điểm chạy: **2026-11-03 09:42:48**
 - Chuẩn: `du_lieu/TuDienDuLieu.csv` (28 tên trường khác nhau, 38 trường trong 6 bảng) + 14 khóa JSON của giao ước API
-- Mã SV2: `(chưa cung cấp)` · Mã SV3: `(chưa cung cấp)` · CSDL SV3: `(không đọc)`
-- Kết quả: **chưa đối chiếu** – chưa có mã SV2/SV3 (bảng chuẩn sẵn sàng)
+- Mã SV2: `diem-quet` · Mã SV3: `sinh-vien-3/01_CSDL_SQL` · CSDL SV3: `(không đọc)`
+- Kết quả: **36/42 khớp**, 6 cần xử lý
 
 | Tên chuẩn | Bảng | SV2 (điểm quét) | SV3 (máy chủ, CSDL) | Kết luận |
 |---|---|---|---|---|
-| `product_code` | Products, Inventory, Transactions | — | — | Chờ mã SV2/SV3 |
-| `product_name` | Products | — | — | Chờ mã SV2/SV3 |
-| `unit` | Products | — | — | Chờ mã SV2/SV3 |
-| `is_active` | Products, Users, ScanPoints | — | — | Chờ mã SV2/SV3 |
-| `quantity` | Inventory, Transactions | — | — | Chờ mã SV2/SV3 |
-| `last_txn_id` | Inventory | — | — | Chờ mã SV2/SV3 |
-| `updated_at` | Inventory | — | — | Chờ mã SV2/SV3 |
-| `txn_id` | Transactions, AuditLog | — | — | Chờ mã SV2/SV3 |
-| `txn_type` | Transactions | — | — | Chờ mã SV2/SV3 |
-| `username` | Transactions, Users, AuditLog | — | — | Chờ mã SV2/SV3 |
-| `scan_point_id` | Transactions, ScanPoints, AuditLog | — | — | Chờ mã SV2/SV3 |
-| `client_time` | Transactions | — | — | Chờ mã SV2/SV3 |
-| `server_time` | Transactions | — | — | Chờ mã SV2/SV3 |
-| `stock_after` | Transactions | — | — | Chờ mã SV2/SV3 |
-| `note` | Transactions | — | — | Chờ mã SV2/SV3 |
-| `full_name` | Users | — | — | Chờ mã SV2/SV3 |
-| `role` | Users | — | — | Chờ mã SV2/SV3 |
-| `password_hash` | Users | — | — | Chờ mã SV2/SV3 |
-| `created_at` | Users | — | — | Chờ mã SV2/SV3 |
-| `name` | ScanPoints | — | — | Chờ mã SV2/SV3 |
-| `location` | ScanPoints | — | — | Chờ mã SV2/SV3 |
-| `ip_address` | ScanPoints | — | — | Chờ mã SV2/SV3 |
-| `log_id` | AuditLog | — | — | Chờ mã SV2/SV3 |
-| `log_time` | AuditLog | — | — | Chờ mã SV2/SV3 |
-| `action` | AuditLog | — | — | Chờ mã SV2/SV3 |
-| `result` | AuditLog | — | — | Chờ mã SV2/SV3 |
-| `error_code` | AuditLog | — | — | Chờ mã SV2/SV3 |
-| `detail` | AuditLog | — | — | Chờ mã SV2/SV3 |
-| `status` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `error_code` | AuditLog | — | — | Chờ mã SV2/SV3 |
-| `message` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `token` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `role` | Users | — | — | Chờ mã SV2/SV3 |
-| `expires_in` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `items` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `count` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `original` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `all_match` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `ton_luu_tru` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `ton_tinh_lai` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `chenh_lech` | (khóa API) | — | — | Chờ mã SV2/SV3 |
-| `password` | (khóa API) | — | — | Chờ mã SV2/SV3 |
+| `product_code` | Products, Inventory, Transactions | ✔ dùng đúng | ✘ `product_id` (01_create_database.sql:12; 01_create_database.sql:20; 01_create_database.sql:47) | LỆCH |
+| `product_name` | Products | không thấy | ✔ dùng đúng | Khớp |
+| `unit` | Products | không thấy | ✔ dùng đúng | Khớp |
+| `is_active` | Products, Users, ScanPoints | không thấy | không thấy | Khớp |
+| `quantity` | Inventory, Transactions | ✔ dùng đúng | ✔ dùng đúng | Khớp |
+| `last_txn_id` | Inventory | không thấy | không thấy | Khớp |
+| `updated_at` | Inventory | ✔ dùng đúng | không thấy | Khớp |
+| `txn_id` | Transactions, AuditLog | ✔ dùng đúng | ✘ `transaction_id` (01_create_database.sql:46) | LỆCH |
+| `txn_type` | Transactions | ✔ dùng đúng | không thấy | Khớp |
+| `username` | Transactions, Users, AuditLog | ✔ dùng đúng | ✔ dùng đúng · ✘ `user_id` (01_create_database.sql:31; 01_create_database.sql:51) | LỆCH |
+| `scan_point_id` | Transactions, ScanPoints, AuditLog | ✔ dùng đúng | ✔ dùng đúng | Khớp |
+| `client_time` | Transactions | ✔ dùng đúng | không thấy | Khớp |
+| `server_time` | Transactions | không thấy | không thấy | Khớp |
+| `stock_after` | Transactions | không thấy | không thấy | THIẾU |
+| `note` | Transactions | ✔ dùng đúng | không thấy | Khớp |
+| `full_name` | Users | không thấy | ✔ dùng đúng | Khớp |
+| `role` | Users | không thấy | không thấy | Khớp |
+| `password_hash` | Users | không thấy | không thấy | Khớp |
+| `created_at` | Users | ✔ dùng đúng | không thấy | Khớp |
+| `name` | ScanPoints | ✔ dùng đúng | không thấy | Khớp |
+| `location` | ScanPoints | không thấy | không thấy | Khớp |
+| `ip_address` | ScanPoints | không thấy | không thấy | Khớp |
+| `log_id` | AuditLog | không thấy | không thấy | Khớp |
+| `log_time` | AuditLog | không thấy | không thấy | Khớp |
+| `action` | AuditLog | không thấy | không thấy | Khớp |
+| `result` | AuditLog | không thấy | không thấy | Khớp |
+| `error_code` | AuditLog | không thấy | không thấy | THIẾU |
+| `detail` | AuditLog | không thấy | không thấy | Khớp |
+| `status` | (khóa API) | ✔ dùng đúng | không thấy | Khớp |
+| `error_code` | AuditLog | không thấy | không thấy | THIẾU |
+| `message` | (khóa API) | không thấy | không thấy | Khớp |
+| `token` | (khóa API) | ✔ dùng đúng | không thấy | Khớp |
+| `role` | Users | không thấy | không thấy | Khớp |
+| `expires_in` | (khóa API) | không thấy | không thấy | Khớp |
+| `items` | (khóa API) | ✔ dùng đúng | không thấy | Khớp |
+| `count` | (khóa API) | không thấy | không thấy | Khớp |
+| `original` | (khóa API) | không thấy | không thấy | Khớp |
+| `all_match` | (khóa API) | không thấy | không thấy | Khớp |
+| `ton_luu_tru` | (khóa API) | không thấy | không thấy | Khớp |
+| `ton_tinh_lai` | (khóa API) | không thấy | không thấy | Khớp |
+| `chenh_lech` | (khóa API) | không thấy | không thấy | Khớp |
+| `password` | (khóa API) | ✔ dùng đúng | không thấy | Khớp |
 
 Cách xử lý khi có LỆCH/THIẾU: (1) bên viết mã sửa về tên chuẩn; hoặc (2) nếu nhóm thống nhất đổi chuẩn thì
 SV1 sửa `TuDienDuLieu.csv`, `schema.sql`, `05_GiaoUocAPI.md`, tăng phiên bản và ghi `NhatKyThayDoi.md`.

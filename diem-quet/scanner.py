@@ -1,128 +1,324 @@
-"""Điểm quét giả lập - khung ban đầu (CV01).
-
-Chạy:
-    python scanner.py config_scan01.json
-    python scanner.py config_scan02.json     (mở ở cửa sổ terminal thứ hai)
-
-Khung này đã làm:
-    - đọc file cấu hình của điểm quét
-    - nhập mã hàng, loại giao dịch, số lượng, người thực hiện
-    - kiểm tra đầu vào, báo lỗi bằng tiếng Việt (bước C)
-    - sinh txn_id và seq_no cho giao dịch hợp lệ
-    - in giao dịch ra màn hình dưới dạng JSON
-
-Chưa làm (các bước sau trong kế hoạch):
-    - gửi lên máy chủ, hiện trạng thái      (bước D)
-    - hàng đợi và gửi lại khi mất mạng      (bước E)
-"""
 import json
+import os
 import sys
-import uuid
+import time
 from datetime import datetime
+import requests
 
-CAC_LOAI = ("NHAP", "XUAT")
+
+def load_config(config_path: str) -> dict:
+    if not os.path.exists(config_path):
+        print(f"[LỖI] Không tìm thấy file cấu hình: {config_path}")
+        sys.exit(1)
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def load_config(path):
-    """Đọc file cấu hình; thoát với thông báo rõ ràng nếu file lỗi."""
+def write_log(log_file: str, message: str):
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] {message}"
+    print(line)
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def get_next_seq_no(seq_file: str) -> int:
+    """Đọc và tăng số thứ tự seq_no lưu trên đĩa."""
+    seq = 0
+    if os.path.exists(seq_file):
+        try:
+            with open(seq_file, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    seq = int(content)
+        except ValueError:
+            seq = 0
+    seq += 1
+    with open(seq_file, "w", encoding="utf-8") as f:
+        f.write(str(seq))
+    return seq
+
+
+def generate_txn_id(scan_point_id: str, seq_no: int) -> str:
+    """Sinh mã giao dịch theo chuẩn SV1: SPxx-yyyymmdd-nnnn"""
+    today = datetime.now().strftime("%Y%m%d")
+    return f"{scan_point_id}-{today}-{seq_no:04d}"
+
+
+def validate_input(product_code: str, txn_type: str, quantity_str: str):
+    """Kiểm tra đầu vào tại điểm quét theo Giao ước API của SV1."""
+    product_code = product_code.strip().upper()
+    if not product_code:
+        return False, "INVALID_INPUT: Mã hàng (product_code) không được để trống!", None
+
+    txn_type = txn_type.strip().upper()
+    if txn_type not in ("NHAP", "XUAT"):
+        return False, "INVALID_INPUT: Loại giao dịch chỉ nhận 'NHAP' hoặc 'XUAT'!", None
+
     try:
-        with open(path, encoding="utf-8") as f:
-            cfg = json.load(f)
-    except FileNotFoundError:
-        sys.exit(f"Không tìm thấy file cấu hình: {path}")
-    except json.JSONDecodeError as e:
-        sys.exit(f"File cấu hình {path} không phải JSON hợp lệ: {e}")
-    if not cfg.get("scan_point_id"):
-        sys.exit(f"File cấu hình {path} thiếu trường scan_point_id")
-    return cfg
+        quantity = int(quantity_str)
+    except ValueError:
+        return False, "INVALID_INPUT: Số lượng phải là số nguyên!", None
+
+    if quantity < 1 or quantity > 10000:
+        return False, "INVALID_INPUT: Số lượng phải nằm trong khoảng từ 1 đến 10000!", None
+
+    return True, "OK", (product_code, txn_type, quantity)
 
 
-def new_txn_id():
-    """Mã giao dịch duy nhất, do máy khách sinh.
-    Tạm dùng UUID; đổi nếu nhóm chốt định dạng khác ở Cổng 1."""
-    return str(uuid.uuid4())
+def load_queue(queue_file: str) -> list:
+    if not os.path.exists(queue_file):
+        return []
+    items = []
+    with open(queue_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    items.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    return items
 
 
-def read_input():
-    """Hỏi người dùng 4 thông tin. Trả về None nếu người dùng muốn thoát."""
-    product_id = input("Mã hàng (q để thoát): ").strip()
-    if product_id.lower() == "q":
-        return None
-    txn_type = input(f"Loại giao dịch ({'/'.join(CAC_LOAI)}): ").strip().upper()
-    quantity = input("Số lượng: ").strip()
-    user = input("Người thực hiện: ").strip()
-    return {
-        "product_id": product_id,
-        "txn_type": txn_type,
-        "quantity": quantity,   # chuỗi thô; validate() kiểm tra và đổi sang số nguyên
-        "user": user,
+def save_queue(queue_file: str, items: list):
+    with open(queue_file, "w", encoding="utf-8") as f:
+        for item in items:
+            f.write(json.dumps(item, ensure_ascii=False) + "\n")
+
+
+def enqueue_transaction(queue_file: str, record: dict):
+    """Ghi giao dịch vào file hàng đợi cục bộ trước khi gửi qua mạng."""
+    items = load_queue(queue_file)
+    items.append(record)
+    save_queue(queue_file, items)
+
+
+def update_queue_status(queue_file: str, txn_id: str, new_status: str, note: str = ""):
+    items = load_queue(queue_file)
+    for item in items:
+        if item.get("payload", {}).get("txn_id") == txn_id:
+            item["status"] = new_status
+            item["updated_at"] = datetime.now().isoformat()
+            if note:
+                item["note"] = note
+    save_queue(queue_file, items)
+
+
+def login_api(base_url: str, username: str, password: str, timeout: int) -> str:
+    """Đăng nhập lấy Bearer Token theo Giao ước API của SV1."""
+    try:
+        resp = requests.post(
+            f"{base_url}/api/login",
+            json={"username": username, "password": password},
+            timeout=timeout,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get("token") or data.get("access_token") or username
+    except Exception:
+        pass
+    # Nếu máy chủ chưa mở endpoint /api/login hoặc đang mất mạng, dùng token tạm
+    return f"token-{username}"
+
+
+def verify_saved_on_server(base_url: str, txn_id: str, headers: dict, timeout: int, log_file: str) -> bool:
+    """Đọc lại giao dịch từ máy chủ theo txn_id để chứng minh đã lưu (CV02)."""
+    try:
+        resp = requests.get(
+            f"{base_url}/api/transactions/{txn_id}",
+            headers=headers,
+            timeout=timeout,
+        )
+        if resp.status_code == 200:
+            write_log(log_file, f"[ĐỌC LẠI THÀNH CÔNG] Bản ghi trên máy chủ: {resp.text}")
+            return True
+        else:
+            write_log(log_file, f"[ĐỌC LẠI KHÔNG THẤY] HTTP {resp.status_code}: {resp.text}")
+    except Exception as e:
+        write_log(log_file, f"[CẢNH BÁO] Không đọc lại được chi tiết {txn_id}: {e}")
+    return False
+
+
+def send_with_retry(config: dict, payload: dict, token: str) -> bool:
+    """Gửi giao dịch với cơ chế chờ tăng dần (5 -> 10 -> 20 -> 60s) và giữ nguyên txn_id (CV03)."""
+    base_url = config["api_base_url"]
+    timeout = config.get("timeout_seconds", 5)
+    delays = config.get("retry_delays", [5, 10, 20, 60])
+    log_file = config["log_file"]
+    queue_file = config["queue_file"]
+    txn_id = payload["txn_id"]
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}",
     }
 
+    max_attempts = len(delays) + 1
+    for attempt in range(1, max_attempts + 1):
+        start_time = time.time()
+        try:
+            write_log(log_file, f"[GỬI LẦN {attempt}/{max_attempts}] txn_id={txn_id} | trạng thái=CHO_XAC_NHAN")
+            resp = requests.post(
+                f"{base_url}/api/transactions",
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+            )
+            latency_ms = round((time.time() - start_time) * 1000, 2)
 
-def validate(raw):
-    """Kiểm tra đầu vào ở máy khách. Trả về (danh sách lỗi, số lượng đã đổi sang int).
-    Máy chủ vẫn kiểm tra lại: máy khách không phải lớp bảo vệ duy nhất."""
-    errors = []
-    if not raw["product_id"]:
-        errors.append("Mã hàng không được để trống.")
-    if raw["txn_type"] not in CAC_LOAI:
-        errors.append(f"Loại giao dịch phải là {' hoặc '.join(CAC_LOAI)}.")
-    qty_text = raw["quantity"]
-    qty = None
-    if not (qty_text.isascii() and qty_text.isdigit()):
-        errors.append("Số lượng phải là số nguyên dương (không chữ, không dấu, không số thập phân).")
-    else:
-        qty = int(qty_text)
-        if qty <= 0:
-            errors.append("Số lượng phải lớn hơn 0.")
-            qty = None
-    if not raw["user"]:
-        errors.append("Người thực hiện không được để trống.")
-    return errors, qty
+            # 1. Thành công (200 hoặc 201)
+            if resp.status_code in (200, 201):
+                update_queue_status(queue_file, txn_id, "DA_XAC_NHAN", f"HTTP {resp.status_code}")
+                write_log(
+                    log_file,
+                    f"[THÀNH CÔNG] txn_id={txn_id} | trạng thái=DA_XAC_NHAN | độ_trễ={latency_ms}ms | số_lần_gửi_lại={attempt - 1} | phản_hồi={resp.text}",
+                )
+                verify_saved_on_server(base_url, txn_id, headers, timeout, log_file)
+                return True
+
+            # 2. Giao dịch trùng (409 DUPLICATE_TXN) -> Coi là đã lưu, không gửi lại nữa
+            if resp.status_code == 409:
+                update_queue_status(queue_file, txn_id, "DA_XAC_NHAN", "409 DUPLICATE_TXN")
+                write_log(
+                    log_file,
+                    f"[CHỐNG TRÙNG - ĐÃ LƯU TRƯỚC ĐÓ] txn_id={txn_id} | trạng thái=DA_XAC_NHAN | độ_trễ={latency_ms}ms | phản_hồi={resp.text}",
+                )
+                return True
+
+            # 3. Các lỗi nghiệp vụ không cần gửi lại (400, 401, 403, 404, 422)
+            if resp.status_code in (400, 401, 403, 404, 422):
+                update_queue_status(queue_file, txn_id, "TU_CHOI", f"HTTP {resp.status_code}")
+                write_log(
+                    log_file,
+                    f"[BỊ TỪ CHỐI NGHIỆP VỤ] txn_id={txn_id} | HTTP={resp.status_code} | độ_trễ={latency_ms}ms | chi_tiết={resp.text}",
+                )
+                return False
+
+            write_log(log_file, f"[LỖI MÁY CHỦ {resp.status_code}] độ_trễ={latency_ms}ms | nội_dung={resp.text}")
+
+        except requests.RequestException as err:
+            latency_ms = round((time.time() - start_time) * 1000, 2)
+            write_log(log_file, f"[LỖI KẾT NỐI MẠNG] txn_id={txn_id} | độ_trễ={latency_ms}ms | lỗi={err}")
+
+        # Chờ tăng dần trước khi gửi lại
+        if attempt <= len(delays):
+            wait_sec = delays[attempt - 1]
+            write_log(log_file, f"[HÀNG ĐỢI] Giữ nguyên txn_id={txn_id}, chờ {wait_sec} giây trước khi gửi lại...")
+            time.sleep(wait_sec)
+
+    write_log(
+        log_file,
+        f"[GIỮ TRONG HÀNG ĐỢI CỤC BỘ] Đã hết số lần thử. Giao dịch {txn_id} giữ trạng thái CHO_XAC_NHAN trong {queue_file}.",
+    )
+    return False
 
 
-def build_txn(cfg, seq_no, raw):
-    """Ghép thông tin nhập vào thành một giao dịch.
-    Tên trường theo sơ đồ dữ liệu; đổi lại nếu giao ước API của SV1 khác."""
-    return {
-        "txn_id": new_txn_id(),
-        "product_id": raw["product_id"],
-        "txn_type": raw["txn_type"],
-        "quantity": raw["quantity"],   # đã là số nguyên sau bước kiểm tra
-        "user": raw["user"],
-        "scan_point_id": cfg["scan_point_id"],
-        "seq_no": seq_no,
-        "client_time": datetime.now().isoformat(timespec="seconds"),
-    }
+def flush_pending_queue(config: dict, token: str):
+    """Đồng bộ lại các giao dịch đang CHO_XAC_NHAN trong file hàng đợi khi có mạng lại."""
+    queue_file = config["queue_file"]
+    log_file = config["log_file"]
+    items = load_queue(queue_file)
+    pending = [i for i in items if i.get("status") == "CHO_XAC_NHAN"]
+
+    if not pending:
+        print("Không có giao dịch nào đang chờ trong hàng đợi cục bộ.")
+        return
+
+    write_log(log_file, f"[ĐỒNG BỘ HÀNG ĐỢI] Phát hiện {len(pending)} giao dịch CHO_XAC_NHAN, bắt đầu gửi lại...")
+    for item in pending:
+        send_with_retry(config, item["payload"], token)
 
 
 def main():
-    if len(sys.argv) != 2:
-        sys.exit("Cách dùng: python scanner.py config_scan01.json")
-    cfg = load_config(sys.argv[1])
-    seq_no = 0   # tạm: chạy lại sẽ về 0. Bước E sẽ lưu số này vào file.
-    print(f"=== {cfg.get('name', cfg['scan_point_id'])} ({cfg['scan_point_id']}) ===")
-    try:
-        while True:
-            raw = read_input()
-            if raw is None:
-                break
-            errors, qty = validate(raw)
-            if errors:
-                print("Dữ liệu không hợp lệ, giao dịch KHÔNG được tạo:")
-                for e in errors:
-                    print(f"  - {e}")
-                print()
+    if len(sys.argv) < 2:
+        print("Cách chạy: python scanner.py <đường_dẫn_file_config.json>")
+        print("Ví dụ:     python scanner.py config_sp01.json")
+        sys.exit(1)
+
+    config = load_config(sys.argv[1])
+    scan_point_id = config.get("scan_point_id", "SP01")
+    log_file = config["log_file"]
+    queue_file = config["queue_file"]
+
+    print("=" * 60)
+    print(f" ĐIỂM QUÉT GIẢ LẬP: {scan_point_id} (IP: {config.get('client_ip')})")
+    print(f" Máy chủ đích     : {config['api_base_url']}")
+    print("=" * 60)
+
+    username = input("Đăng nhập - Nhập tài khoản (mặc định nv01): ").strip() or "nv01"
+    password = input("Đăng nhập - Nhập mật khẩu (mặc định Kho@2026): ").strip() or "Kho@2026"
+    token = login_api(config["api_base_url"], username, password, config.get("timeout_seconds", 5))
+    write_log(log_file, f"Khởi động {scan_point_id} với người dùng '{username}'.")
+
+    # Tự động kiểm tra hàng đợi tồn đọng từ lần tắt đột ngột trước
+    flush_pending_queue(config, token)
+
+    while True:
+        print(f"\n--- MENU ĐIỂM QUÉT {scan_point_id} ---")
+        print("1. Quét và gửi giao dịch mới (NHAP / XUAT)")
+        print("2. Đồng bộ lại hàng đợi chưa xác nhận (sau khi có mạng lại)")
+        print("3. Gửi lặp lại một txn_id cũ (Để test ca KT2 - Chống trùng)")
+        print("0. Thoát")
+        choice = input("Chọn chức năng (0-3): ").strip()
+
+        if choice == "0":
+            break
+        elif choice == "2":
+            flush_pending_queue(config, token)
+        elif choice == "3":
+            dup_txn = input("Nhập mã txn_id muốn gửi lặp lại: ").strip()
+            p_code = input("Nhập mã hàng (product_code, VD: SP001): ").strip().upper()
+            t_type = input("Loại giao dịch (NHAP/XUAT): ").strip().upper()
+            qty = int(input("Số lượng: ").strip())
+            payload = {
+                "txn_id": dup_txn,
+                "product_code": p_code,
+                "txn_type": t_type,
+                "quantity": qty,
+                "scan_point_id": scan_point_id,
+                "client_time": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            }
+            print("\n[JSON GỬI LẶP KT2]:", json.dumps(payload, ensure_ascii=False, indent=2))
+            send_with_retry(config, payload, token)
+        elif choice == "1":
+            p_code = input("Nhập mã hàng (product_code, VD: SP001): ")
+            t_type = input("Nhập loại giao dịch (NHAP / XUAT): ")
+            qty_str = input("Nhập số lượng (1 - 10000): ")
+
+            ok, msg, cleaned = validate_input(p_code, t_type, qty_str)
+            if not ok:
+                write_log(log_file, f"[CHẶN ĐẦU VÀO] {msg}")
                 continue
-            raw["quantity"] = qty
-            seq_no += 1   # chỉ tăng khi giao dịch hợp lệ
-            txn = build_txn(cfg, seq_no, raw)
-            # TODO bước D: gửi lên máy chủ và hiển thị trạng thái
-            print(json.dumps(txn, ensure_ascii=False, indent=2))
-            print()
-    except (EOFError, KeyboardInterrupt):
-        print()
-    print("Đã thoát.")
+
+            product_code, txn_type, quantity = cleaned
+            seq_no = get_next_seq_no(config["seq_file"])
+            txn_id = generate_txn_id(scan_point_id, seq_no)
+
+            # Payload chuẩn 100% theo Giao ước API của SV1
+            payload = {
+                "txn_id": txn_id,
+                "product_code": product_code,
+                "txn_type": txn_type,
+                "quantity": quantity,
+                "scan_point_id": scan_point_id,
+                "client_time": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            }
+
+            print("\n[GIAO DỊCH JSON ĐÃ SINH]:")
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+            # Ghi vào file hàng đợi cục bộ với trạng thái CHO_XAC_NHAN trước khi gửi
+            record = {
+                "status": "CHO_XAC_NHAN",
+                "created_at": datetime.now().isoformat(),
+                "username": username,
+                "payload": payload,
+            }
+            enqueue_transaction(queue_file, record)
+
+            # Gửi qua mạng tới máy chủ
+            send_with_retry(config, payload, token)
 
 
 if __name__ == "__main__":
