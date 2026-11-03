@@ -2,6 +2,7 @@
   "scan_point_id": "SP02",
   "client_ip": "192.168.20.12",
   "api_base_url": "http://127.0.0.1:8080",
+  "default_username": "nv02",
   "seq_file": "seq_SP02.txt",
   "queue_file": "queue_SP02.jsonl",
   "log_file": "log_SP02.log",

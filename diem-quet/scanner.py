@@ -259,7 +259,8 @@ def main():
     print(f" Máy chủ đích     : {config['api_base_url']}")
     print("=" * 60)
 
-    username = input("Đăng nhập - Tài khoản (mặc định nv01): ").strip() or "nv01"
+    default_user = config.get("default_username", "nv01")
+    username = input(f"Đăng nhập - Tài khoản (mặc định {default_user}): ").strip() or default_user
     password = input("Đăng nhập - Mật khẩu (mặc định Kho@2026): ").strip() or "Kho@2026"
     token = login_api(config["api_base_url"], username, password, config.get("timeout_seconds", 5))
     write_log(log_file, f"Khởi động {scan_point_id} với người dùng '{username}'.")
