@@ -1,0 +1,112 @@
+! =====================================================================
+! Đề tài 22 - Kho hàng thông minh - SV1
+! Thiết bị : R1-KHO  (Cisco 2911 trong Packet Tracer / router-firewall khi triển khai thật)
+! Vai trò  : định tuyến giữa 3 VLAN (router-on-a-stick), cấp DHCP, lọc truy cập bằng ACL
+! Kết nối  : G0/0 (trunk 802.1Q) <-> SW1-KHO G0/1
+! Ghi chú  : Hệ thống kho chạy hoàn toàn nội bộ, KHÔNG bắt buộc Internet.
+! Dán từng khối sau khi vào: enable -> configure terminal
+! =====================================================================
+
+hostname R1-KHO
+enable secret Kho@2026
+service password-encryption
+no ip domain-lookup
+banner motd #He thong kho hang - chi nguoi duoc phep truy cap#
+
+! ---------- Cổng vật lý nối switch: bật, không đặt IP ----------
+interface GigabitEthernet0/0
+ description TRUNK -> SW1-KHO G0/1
+ no ip address
+ no shutdown
+exit
+
+! ---------- VLAN 10 - MÁY CHỦ (máy chủ ứng dụng + CSDL, NAS sao lưu, IP quản lý switch) ----------
+interface GigabitEthernet0/0.10
+ description VLAN10_MAYCHU
+ encapsulation dot1Q 10
+ ip address 192.168.10.1 255.255.255.0
+exit
+
+! ---------- VLAN 20 - VĂN PHÒNG (thủ kho, quản trị, quản lý) ----------
+interface GigabitEthernet0/0.20
+ description VLAN20_VANPHONG
+ encapsulation dot1Q 20
+ ip address 192.168.20.1 255.255.255.0
+ ip access-group ACL_VANPHONG in
+exit
+
+! ---------- VLAN 30 - ĐIỂM QUÉT (máy khách quét có dây + Wi-Fi) ----------
+interface GigabitEthernet0/0.30
+ description VLAN30_QUETMA
+ encapsulation dot1Q 30
+ ip address 192.168.30.1 255.255.255.0
+ ip access-group ACL_QUETMA in
+exit
+
+! ---------- DHCP: chỉ cấp động cho thiết bị mới (máy quét cầm tay, máy mở rộng) ----------
+! .1-.99 dành cho địa chỉ tĩnh (gateway, máy chủ, điểm quét cố định)
+ip dhcp excluded-address 192.168.20.1 192.168.20.99
+ip dhcp excluded-address 192.168.30.1 192.168.30.99
+
+ip dhcp pool POOL_VANPHONG
+ network 192.168.20.0 255.255.255.0
+ default-router 192.168.20.1
+ dns-server 192.168.10.10
+exit
+
+ip dhcp pool POOL_QUETMA
+ network 192.168.30.0 255.255.255.0
+ default-router 192.168.30.1
+ dns-server 192.168.10.10
+exit
+
+! ---------- ACL: điểm quét CHỈ được gọi API của máy chủ kho ----------
+! Không cho điểm quét chạm vào NAS sao lưu, văn phòng hay thiết bị mạng.
+ip access-list extended ACL_QUETMA
+ remark DHCP xin dia chi
+ permit udp any eq bootpc any eq bootps
+ remark API kho (8080) va HTTP (80 - Server-PT chi ho tro cong 80)
+ permit tcp 192.168.30.0 0.0.0.255 host 192.168.10.10 eq 8080
+ permit tcp 192.168.30.0 0.0.0.255 host 192.168.10.10 eq www
+ remark Phan giai ten kho.local
+ permit udp 192.168.30.0 0.0.0.255 host 192.168.10.10 eq domain
+ remark Ping kiem tra ket noi toi may chu, tra loi ping cua van phong
+ permit icmp 192.168.30.0 0.0.0.255 host 192.168.10.10 echo
+ permit icmp 192.168.30.0 0.0.0.255 192.168.20.0 0.0.0.255 echo-reply
+ deny ip 192.168.30.0 0.0.0.255 any
+exit
+
+! ---------- ACL: văn phòng dùng ứng dụng kho; chỉ máy quản trị được quản trị máy chủ/switch ----------
+ip access-list extended ACL_VANPHONG
+ permit udp any eq bootpc any eq bootps
+ permit tcp 192.168.20.0 0.0.0.255 host 192.168.10.10 eq 8080
+ permit tcp 192.168.20.0 0.0.0.255 host 192.168.10.10 eq www
+ permit udp 192.168.20.0 0.0.0.255 host 192.168.10.10 eq domain
+ remark Chi PC-QUANTRI duoc SSH/Telnet vao may chu, NAS va switch (192.168.10.2)
+ permit tcp host 192.168.20.12 192.168.10.0 0.0.0.255 eq 22
+ permit tcp host 192.168.20.12 host 192.168.10.2 eq telnet
+ permit icmp 192.168.20.0 0.0.0.255 any
+ remark Chan moi truy cap khac vao vung may chu (bao ve NAS sao luu)
+ deny ip 192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255
+ permit ip 192.168.20.0 0.0.0.255 any
+exit
+
+! ---------- Truy cập quản trị từ xa ----------
+line vty 0 4
+ password Kho@2026
+ login
+ transport input telnet ssh
+exit
+line console 0
+ password Kho@2026
+ login
+exit
+
+end
+write memory
+
+! ---------- Lệnh kiểm tra (chụp màn hình làm minh chứng) ----------
+! show ip interface brief
+! show ip route
+! show access-lists
+! show ip dhcp binding

@@ -1,0 +1,136 @@
+! =====================================================================
+! Đề tài 22 - Kho hàng thông minh - SV1
+! Thiết bị : SW1-KHO  (Cisco 2960-24TT trong Packet Tracer / switch quản lý được 24 cổng khi triển khai thật)
+! Vai trò  : chuyển mạch lớp 2, chia 3 VLAN, trunk lên router, bảo mật cổng điểm quét
+! Dán từng khối sau khi vào: enable -> configure terminal
+! =====================================================================
+
+hostname SW1-KHO
+enable secret Kho@2026
+service password-encryption
+no ip domain-lookup
+
+! ---------- Khai báo 3 VLAN ----------
+vlan 10
+ name MAYCHU
+vlan 20
+ name VANPHONG
+vlan 30
+ name QUETMA
+exit
+
+! ---------- VLAN 10 - máy chủ: Fa0/1-4 ----------
+interface FastEthernet0/1
+ description SRV-KHO 192.168.10.10 (ung dung + CSDL)
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+interface FastEthernet0/2
+ description NAS-SAOLUU 192.168.10.20
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+interface range FastEthernet0/3 - 4
+ description DU PHONG VLAN 10 (tach may chu CSDL khi mo rong)
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+exit
+
+! ---------- VLAN 20 - văn phòng: Fa0/5-8 ----------
+interface FastEthernet0/5
+ description PC-THUKHO 192.168.20.11
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+interface FastEthernet0/6
+ description PC-QUANTRI 192.168.20.12
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+interface FastEthernet0/7
+ description PC-QUANLY 192.168.20.13
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+interface FastEthernet0/8
+ description DU PHONG VLAN 20
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+exit
+
+! ---------- VLAN 30 - điểm quét: Fa0/9-16 ----------
+! Port-security: mỗi cổng điểm quét chỉ nhận 1 máy, máy lạ cắm vào -> cổng bị tắt
+interface FastEthernet0/9
+ description SCAN-01 192.168.30.11 (Diem quet 1 - cong nhap)
+ switchport mode access
+ switchport access vlan 30
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security violation shutdown
+ spanning-tree portfast
+interface FastEthernet0/10
+ description DU PHONG DIEM QUET CO DAY
+ switchport mode access
+ switchport access vlan 30
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security violation shutdown
+ spanning-tree portfast
+interface FastEthernet0/11
+ description AP-KHO (Wi-Fi KHO-QUETMA) - SCAN-02 ket noi qua day
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+interface range FastEthernet0/12 - 16
+ description DU PHONG SCAN-03..SCAN-06 (khi tang gap doi diem quet)
+ switchport mode access
+ switchport access vlan 30
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security violation shutdown
+ spanning-tree portfast
+exit
+
+! ---------- Cổng chưa dùng: tắt ----------
+interface range FastEthernet0/17 - 24
+ description CHUA SU DUNG
+ switchport mode access
+ shutdown
+exit
+
+! ---------- Trunk lên router ----------
+interface GigabitEthernet0/1
+ description TRUNK -> R1-KHO G0/0
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30
+exit
+
+! ---------- Địa chỉ quản lý switch (đặt trong VLAN 10, chỉ PC-QUANTRI được telnet tới) ----------
+interface Vlan10
+ ip address 192.168.10.2 255.255.255.0
+ no shutdown
+exit
+ip default-gateway 192.168.10.1
+
+line vty 0 4
+ password Kho@2026
+ login
+exit
+line console 0
+ password Kho@2026
+ login
+exit
+
+end
+write memory
+
+! ---------- Lệnh kiểm tra (chụp màn hình làm minh chứng) ----------
+! show vlan brief
+! show interfaces trunk
+! show port-security
+! show mac address-table

@@ -1,0 +1,30 @@
+=====================================================================
+Đề tài 22 - Kho hàng thông minh - SV1
+Thiết bị : AP-KHO  (AccessPoint-PT trong Packet Tracer / AP Wi-Fi gắn trần khi triển khai thật)
+Vai trò  : phát Wi-Fi riêng cho máy quét cầm tay; cầu nối lớp 2 vào VLAN 30
+Kết nối  : cổng Port 0 của AP <-> SW1-KHO Fa0/11 (access VLAN 30)
+Cấu hình trong Packet Tracer: nhấn AP-KHO -> tab Config -> Port 1
+=====================================================================
+
+[AP-KHO - Port 1]
+SSID            : KHO-QUETMA
+Xác thực        : WPA2-PSK
+Mật khẩu (PSK)  : KhoQuet@2026
+Mã hóa          : AES
+Kênh            : 6 (mặc định của Packet Tracer)
+
+[SCAN-02 - Laptop-PT, điểm quét 2 - cổng xuất]
+Phần cứng       : tắt máy (Physical) -> tháo card Ethernet -> lắp WPC300N -> bật máy
+Config > Wireless0:
+  SSID          : KHO-QUETMA
+  Xác thực      : WPA2-PSK, PSK = KhoQuet@2026, AES
+  IP tĩnh       : 192.168.30.12 / 255.255.255.0
+  Gateway       : 192.168.30.1
+  DNS           : 192.168.10.10
+
+[Máy quét cầm tay thêm sau (mở rộng)]
+  Kết nối cùng SSID, nhận IP động 192.168.30.100-254 từ POOL_QUETMA trên R1-KHO.
+  Phải được khai báo trong bảng ScanPoints (SP03, SP04...) thì máy chủ mới chấp nhận giao dịch.
+
+Lưu ý: Packet Tracer chỉ chứng minh cấu hình và kết nối Wi-Fi trong mô hình,
+không dùng để khẳng định vùng phủ sóng hay thông lượng Wi-Fi thật.

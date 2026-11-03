@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>Lưu đồ luồng dữ liệu</title>
+<style>html,body{margin:0;padding:0;background:#fff}</style></head>
+<body>
+<script src="helpers.js"></script>
+<script>
+init(1920, 1460);
+
+text(960, 46, "LƯU ĐỒ LUỒNG DỮ LIỆU QUÉT MÃ: QUÉT → GỬI → KIỂM TRA → LƯU → CẬP NHẬT TỒN → PHẢN HỒI", { size: 25, weight: 700, anchor: "middle" });
+text(960, 76, "Ví dụ: nv01 tại SP01 nhập 20 thùng SP001 (tồn trước 100) · gồm nhánh lỗi, nhánh trùng mã giao dịch và nhánh mất mạng", { size: 15, fill: C.sub, anchor: "middle" });
+
+const RED = "#dc2626", DUP = "#9333ea";
+
+// ---- 3 làn ----
+for (const [x, w, s, col] of [[30, 560, "MÁY KHÁCH – ĐIỂM QUÉT (SV2)", C.v30], [610, 900, "MÁY CHỦ ỨNG DỤNG SRV-KHO (SV3)", C.v10], [1530, 360, "CSDL kho.db", C.db]]) {
+  rect(x, 100, w, 1250, { fill: C.panel, stroke: "#e5e7eb", rx: 14 });
+  heading(x + 10, 110, w - 20, s, col);
+}
+
+function box(cx, y, w, h, title, subs, col, o = {}) {
+  const x = cx - w / 2;
+  rect(x, y, w, h, { fill: o.fill ?? "#fff", stroke: col, sw: 2, rx: 10 });
+  const n = 1 + subs.length, top = y + h / 2 - (n - 1) * 11 + 5;
+  text(cx, top, title, { size: o.size ?? 16, weight: 700, anchor: "middle", fill: o.tcol ?? C.ink });
+  subs.forEach((s, i) => text(cx, top + 23 + i * 21, s, { size: 13.5, fill: C.sub, anchor: "middle" }));
+  if (o.badge) badge(x + 4, y + 4, o.badge);
+}
+function diamond(cx, cy, w, h, lines, col) {
+  el("path", { d: `M${cx},${cy - h / 2} L${cx + w / 2},${cy} L${cx},${cy + h / 2} L${cx - w / 2},${cy} Z`, fill: "#fff", stroke: col, "stroke-width": 2 });
+  lines.forEach((s, i) => text(cx, cy - (lines.length - 1) * 10 + 5 + i * 20, s, { size: 14, weight: i === 0 ? 700 : 500, anchor: "middle" }));
+}
+const arrow = (pts, col = C.flow, o = {}) => line(pts, { stroke: col, sw: 2.5, arrow: col === RED ? "aInk" : col === C.backup ? "aBackup" : "aFlow", ...o });
+function yes(x, y, s = "Có") { tag(x, y, s, { size: 13, fill: "#15803d", weight: 700 }); }
+function no(x, y, s = "Không") { tag(x, y, s, { size: 13, fill: RED, weight: 700 }); }
+
+// ---- Làn máy khách ----
+const A = 310;
+box(A, 160, 440, 80, "QUÉT: quét / nhập mã hàng", ["chọn NHAP hoặc XUAT · nhập số lượng"], C.v30, { badge: 1 });
+box(A, 275, 440, 80, "Sinh txn_id = SP01-20261026-0001", ["lưu vào hàng đợi cục bộ TRƯỚC khi gửi"], C.v30);
+box(A, 390, 440, 80, "GỬI: POST /api/transactions", ["JSON theo giao ước API v1.0 · chờ tối đa 5 s"], C.v30, { badge: 2 });
+arrow([[A, 240], [A, 275]]); arrow([[A, 355], [A, 390]]);
+diamond(A, 590, 380, 130, ["Nhận phản hồi", "trong 5 giây?"], C.v30);
+arrow([[A, 470], [A, 525]]);
+
+box(A, 735, 460, 130, "NHÁNH MẤT MẠNG / HẾT GIỜ CHỜ", ["Giữ giao dịch trong hàng đợi", "Thử lại sau 5 → 10 → 20 s với CÙNG txn_id", "Máy chủ đã lưu rồi → nhận 409, không cộng 2 lần"], C.backup, { fill: "#fff7ed", tcol: C.backup });
+arrow([[A, 655], [A, 735]], C.backup); no(A + 40, 700);
+arrow([[80, 800], [55, 800], [55, 430], [90, 430]], C.backup, { dash: "8 5" });
+tag(55, 620, "gửi lại", { size: 12.5, fill: C.backup, weight: 700 });
+
+arrow([[A + 190, 590], [565, 590], [565, 1180], [532, 1180]], "#15803d");
+yes(530, 580);
+
+rect(88, 1110, 444, 225, { fill: "#fff", stroke: C.v30, sw: 2, rx: 10 });
+text(A, 1140, "Máy khách xử lý phản hồi", { size: 16, weight: 700, anchor: "middle" });
+[["201 OK", "ĐÃ LƯU → xóa khỏi hàng đợi, hiện tồn mới", "#15803d"],
+ ["409 DUPLICATE_TXN", "đã lưu từ trước → xóa khỏi hàng đợi", DUP],
+ ["400 / 403 / 404 / 422", "báo lỗi cho nhân viên, KHÔNG gửi lại", RED],
+ ["401 / 500", "giữ trong hàng đợi, gửi lại cùng txn_id", C.backup]]
+  .forEach(([a, b, col], i) => { text(104, 1172 + i * 42, a, { size: 14, weight: 700, fill: col }); text(104, 1192 + i * 42, b, { size: 13.5, fill: C.sub }); });
+
+// ---- Làn máy chủ ----
+const B = 880, BR = 1300;
+box(B, 390, 420, 80, "Nhận yêu cầu · BEGIN IMMEDIATE", ["khóa ghi để 2 điểm quét không chen nhau"], C.v10);
+arrow([[530, 430], [670, 430]]);
+tag(600, 420, "JSON", { size: 12.5, fill: C.flow, weight: 700 });
+
+diamond(B, 560, 420, 130, ["KIỂM TRA hợp lệ?", "token, quyền ghi, định dạng,", "số lượng, điểm quét"], C.v10);
+badge(B - 200, 510, 3);
+arrow([[B, 470], [B, 495]]);
+box(BR, 515, 360, 90, "NHÁNH LỖI – dữ liệu / quyền", ["400 INVALID_* · 401 · 403 FORBIDDEN", "rollback · ghi AuditLog REJECTED"], RED, { fill: "#fef2f2", tcol: RED });
+arrow([[B + 210, 560], [BR - 180, 560]], RED); no(B + 245, 550);
+
+diamond(B, 720, 420, 120, ["txn_id đã tồn tại?", "(trùng mã giao dịch – R1)"], C.v10);
+arrow([[B, 625], [B, 660]]); yes(B + 30, 645, "Hợp lệ");
+box(BR, 670, 360, 100, "NHÁNH TRÙNG", ["Không INSERT, tồn KHÔNG đổi lần 2 (KT2)", "409 DUPLICATE_TXN + kết quả lần đầu"], DUP, { fill: "#faf5ff", tcol: DUP });
+arrow([[B + 210, 720], [BR - 180, 720]], DUP); yes(B + 245, 710, "Có – trùng");
+
+diamond(B, 880, 420, 120, ["Mã hàng có trong danh mục?", "XUAT: tồn ≥ số lượng?"], C.v10);
+arrow([[B, 780], [B, 820]]); no(B + 30, 803, "Chưa có");
+box(BR, 835, 360, 90, "NHÁNH LỖI – nghiệp vụ", ["404 PRODUCT_NOT_FOUND", "422 INSUFFICIENT_STOCK · không đổi tồn"], RED, { fill: "#fef2f2", tcol: RED });
+arrow([[B + 210, 880], [BR - 180, 880]], RED); no(B + 245, 870);
+
+box(B, 965, 420, 70, "LƯU: INSERT INTO Transactions", ["mã GD, mã hàng, loại, SL, người, điểm quét, thời gian"], C.v10, { badge: 4 });
+arrow([[B, 940], [B, 965]]); yes(B + 30, 955);
+box(B, 1060, 420, 70, "CẬP NHẬT TỒN: UPDATE Inventory", ["SP001: 100 → 120 · stock_after = 120"], C.v10, { badge: 5 });
+arrow([[B, 1035], [B, 1060]]);
+box(B, 1155, 420, 70, "COMMIT – cùng một giao dịch CSDL", ["lỗi bất kỳ → ROLLBACK cả ④ và ⑤ → 500 SERVER_ERROR"], C.v10, { fill: C.flowBg });
+arrow([[B, 1130], [B, 1155]]);
+box(B, 1250, 420, 75, "PHẢN HỒI: 201 OK", ["{ status, txn_id, stock_after: 120, server_time }"], C.v10, { badge: 6 });
+arrow([[B, 1225], [B, 1250]]);
+arrow([[B - 210, 1290], [532, 1290]], "#15803d");
+tag(600, 1282, "201", { size: 12.5, fill: "#15803d", weight: 700 });
+
+// Đường phản hồi từ các nhánh lỗi / trùng về máy khách
+for (const y of [560, 720, 880]) line([[BR + 180, y], [1500, y]], { stroke: C.mute, sw: 2.5 });
+arrow([[1500, 560], [1500, 1342], [552, 1342], [552, 1235], [532, 1235]], C.mute, { arrow: "aGrey" });
+tag(1320, 1336, "phản hồi lỗi / trùng (4xx) → máy khách", { size: 12.5, fill: C.sub, weight: 600 });
+
+// ---- Làn CSDL ----
+const D = 1710;
+function db(y, title, sub, col) {
+  el("ellipse", { cx: D, cy: y, rx: 150, ry: 12, fill: "#f0fdfa", stroke: col, "stroke-width": 2 });
+  rect(D - 150, y, 300, 62, { fill: "#f0fdfa", stroke: "none", rx: 0 });
+  line([[D - 150, y], [D - 150, y + 62]], { stroke: col, sw: 2 }); line([[D + 150, y], [D + 150, y + 62]], { stroke: col, sw: 2 });
+  el("path", { d: `M${D - 150},${y + 62} A150,12 0 0 0 ${D + 150},${y + 62}`, fill: "#f0fdfa", stroke: col, "stroke-width": 2 });
+  text(D, y + 32, title, { size: 15, weight: 700, anchor: "middle", fill: col });
+  text(D, y + 54, sub, { size: 13, anchor: "middle", fill: C.sub });
+}
+db(400, "AuditLog", "+1 dòng cho MỌI yêu cầu (OK / REJECTED)", C.db);
+line([[B + 210, 410], [1560, 410]], { stroke: C.db, sw: 2, dash: "6 4", arrow: "aGrey" });
+db(950, "Transactions", "+1 dòng SP01-20261026-0001", C.db);
+arrow([[B + 210, 1000], [1560, 1000]], C.db, { arrow: "aGrey" });
+db(1045, "Inventory", "SP001: 100 → 120", C.db);
+arrow([[B + 210, 1095], [1560, 1095]], C.db, { arrow: "aGrey" });
+rect(1555, 1150, 310, 150, { fill: "#fff", stroke: C.db, rx: 10, dash: "6 4" });
+text(D, 1180, "Bất biến sau mỗi COMMIT", { size: 15, weight: 700, anchor: "middle", fill: C.db });
+text(D, 1206, "Inventory.quantity =", { size: 14, anchor: "middle" });
+text(D, 1228, "Σ NHAP − Σ XUAT", { size: 14, anchor: "middle" });
+text(D, 1256, "kiểm tra bằng view", { size: 13, anchor: "middle", fill: C.sub });
+text(D, 1278, "v_doi_chieu_ton (chenh_lech = 0)", { size: 13, anchor: "middle", fill: C.sub });
+
+// ---- Kết luận ----
+rect(30, 1370, 1860, 75, { fill: C.flowBg, stroke: C.flow, rx: 10 });
+text(50, 1400, "Quét thành công (bước ①, máy kêu “bíp”) chưa chứng minh máy chủ đã lưu:", { size: 15.5, weight: 700, fill: C.flow });
+text(50, 1426, "gói tin có thể mất ở ② hoặc ⑥, bị từ chối ở ③, hoặc lỗi trước COMMIT. Chỉ phản hồi 201 OK (gửi SAU COMMIT), 409 (đã lưu từ trước) hoặc GET /api/transactions/{txn_id} mới là bằng chứng.", { size: 14.5 });
+</script>
+</body></html>

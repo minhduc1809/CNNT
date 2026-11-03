@@ -1,0 +1,4 @@
+Thời điểm đo         : 2026-10-26 20:46:40
+Số giao dịch chèn    : 100,000
+Kích thước CSDL      : 73,728 B (rỗng) -> 30,187,520 B
+Byte / giao dịch     : 301 B (gồm Transactions + 2 chỉ mục + 1 dòng AuditLog)

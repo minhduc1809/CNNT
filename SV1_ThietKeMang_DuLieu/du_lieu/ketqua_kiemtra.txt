@@ -1,0 +1,46 @@
+==============================================================================
+ĐỀ TÀI 22 - SV1 - KIỂM CHỨNG MÔ HÌNH DỮ LIỆU VÀ QUY TẮC GIAO DỊCH
+Thời điểm chạy : 2026-10-26T21:05:32
+Python 3.13.2 | SQLite 3.45.3
+==============================================================================
+Đã tạo các bảng: AuditLog, Inventory, Products, ScanPoints, Transactions, Users
+Tồn đầu kỳ: SP001=100, SP002=50, SP003=200, SP004=80, SP005=0
+------------------------------------------------------------------------------
+[2026-10-26T21:05:32] TC01 | SP01/nv01 NHAP 20 SP001 (tồn 100)
+      -> {'status': 'OK', 'txn_id': 'SP01-20261026-0001', 'stock_after': 120} ; tồn SP001 = 120
+      => ĐẠT
+[2026-10-26T21:05:32] TC02 | SP02/nv02 XUAT 30 SP001 (tồn 120)
+      -> {'status': 'OK', 'txn_id': 'SP02-20261026-0001', 'stock_after': 90} ; tồn SP001 = 90
+      => ĐẠT
+[2026-10-26T21:05:32] TC03 | Gửi trùng txn_id SP02-20261026-0001
+      -> DUPLICATE_TXN ; tồn 90 -> 90 ; số giao dịch 6 -> 6
+      => ĐẠT
+[2026-10-26T21:05:32] TC04 | XUAT 51 SP002 khi tồn 50
+      -> INSUFFICIENT_STOCK ; tồn SP002 = 50
+      => ĐẠT
+[2026-10-26T21:05:32] TC05 | NHAP mã hàng SP999 (không có)
+      -> PRODUCT_NOT_FOUND
+      => ĐẠT
+[2026-10-26T21:05:32] TC06 | Số lượng 0 và -5
+      -> INVALID_QUANTITY, INVALID_QUANTITY ; tồn SP003 = 200
+      => ĐẠT
+[2026-10-26T21:05:32] TC07 | quanly01 (QUANLY) cố NHAP
+      -> FORBIDDEN ; tồn SP001 = 90
+      => ĐẠT
+[2026-10-26T21:05:32] TC08 | UPDATE/DELETE trực tiếp bảng Transactions
+      -> Transactions la bang chi them: khong duoc sua | Transactions la bang chi them: khong duoc xoa
+      => ĐẠT
+[2026-10-26T21:05:32] TC09 | UPDATE Inventory quantity = -1
+      -> CHECK constraint failed: quantity >= 0
+      => ĐẠT
+[2026-10-26T21:05:32] TC10 | SP01 NHAP 50x1 và SP02 XUAT 50x1 SP004 chạy song song
+      -> tồn SP004 80 -> 80 (kỳ vọng 80); 100 giao dịch trong 82 ms ≈ 1224 giao dịch/giây
+      => ĐẠT
+[2026-10-26T21:05:32] TC11 | Đối chiếu Inventory với Σ NHAP - Σ XUAT (view v_doi_chieu_ton)
+      -> SP001: lưu=90, tính=90, lệch=0; SP002: lưu=50, tính=50, lệch=0; SP003: lưu=200, tính=200, lệch=0; SP004: lưu=80, tính=80, lệch=0; SP005: lưu=0, tính=0, lệch=0
+      => ĐẠT
+------------------------------------------------------------------------------
+AuditLog: OK=102, REJECTED=6
+Mã lỗi đã ghi nhận: DUPLICATE_TXN=1, FORBIDDEN=1, INSUFFICIENT_STOCK=1, INVALID_QUANTITY=2, PRODUCT_NOT_FOUND=1
+TỔNG KẾT: 11/11 tình huống ĐẠT
+==============================================================================

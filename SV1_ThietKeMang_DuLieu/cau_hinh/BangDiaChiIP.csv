@@ -1,0 +1,12 @@
+﻿Thiết bị,Loại thiết bị (Packet Tracer),Vai trò,VLAN,Địa chỉ IP,Subnet mask,Gateway,DNS,Cổng switch,Cấp phát,Dịch vụ / cổng mở,Chạy thật hay chỉ trên sơ đồ
+R1-KHO,Router 2911,Định tuyến liên VLAN + DHCP + ACL,10/20/30,192.168.10.1 / 192.168.20.1 / 192.168.30.1,255.255.255.0,-,-,G0/0 <-> SW1 G0/1 (trunk),Tĩnh,DHCP (UDP 67),Chỉ trên sơ đồ + Packet Tracer
+SW1-KHO,Switch 2960-24TT,Chuyển mạch + 3 VLAN + port-security,10,192.168.10.2,255.255.255.0,192.168.10.1,-,-,Tĩnh,Telnet (chỉ từ PC-QUANTRI),Chỉ trên sơ đồ + Packet Tracer
+AP-KHO,AccessPoint-PT,Wi-Fi KHO-QUETMA cho máy quét,30,(cầu nối lớp 2),-,-,-,Fa0/11,-,-,Chỉ trên sơ đồ + Packet Tracer
+SRV-KHO,Server-PT,Máy chủ ứng dụng + CSDL kho + DNS kho.local,10,192.168.10.10,255.255.255.0,192.168.10.1,192.168.10.10,Fa0/1,Tĩnh,API 8080/TCP; HTTP 80; DNS 53; SSH 22,CHẠY THẬT: server SV3 trên laptop (127.0.0.1:8080)
+NAS-SAOLUU,Server-PT,Lưu bản sao lưu CSDL,10,192.168.10.20,255.255.255.0,192.168.10.1,192.168.10.10,Fa0/2,Tĩnh,SMB 445 / SSH 22 (chỉ từ SRV-KHO),CHẠY THẬT dạng thư mục backup/ (SV3)
+PC-THUKHO,PC-PT,Máy tính quản lý kho của thủ kho,20,192.168.20.11,255.255.255.0,192.168.20.1,192.168.10.10,Fa0/5,Tĩnh,-,Chỉ trên sơ đồ (vai trò THUKHO chạy thật bằng tài khoản thukho01)
+PC-QUANTRI,PC-PT,Máy quản trị hệ thống,20,192.168.20.12,255.255.255.0,192.168.20.1,192.168.10.10,Fa0/6,Tĩnh,-,Chỉ trên sơ đồ (vai trò ADMIN chạy thật bằng tài khoản admin)
+PC-QUANLY,PC-PT,Người quản lý (chỉ xem),20,192.168.20.13,255.255.255.0,192.168.20.1,192.168.10.10,Fa0/7,Tĩnh,-,Chỉ trên sơ đồ (vai trò QUANLY chạy thật bằng tài khoản quanly01 - KT3)
+SCAN-01,PC-PT,Điểm quét 1 - cổng nhập (có dây),30,192.168.30.11,255.255.255.0,192.168.30.1,192.168.10.10,Fa0/9,Tĩnh,-,CHẠY THẬT: tiến trình client SP01 (SV2)
+SCAN-02,Laptop-PT (WPC300N),Điểm quét 2 - cổng xuất (Wi-Fi),30,192.168.30.12,255.255.255.0,192.168.30.1,192.168.10.10,qua AP-KHO,Tĩnh,-,CHẠY THẬT: tiến trình client SP02 (SV2)
+Dự phòng SCAN-03..06,PC-PT / máy quét cầm tay,Điểm quét khi mở rộng,30,192.168.30.13-.16 hoặc DHCP .100-.254,255.255.255.0,192.168.30.1,192.168.10.10,Fa0/12-16 hoặc Wi-Fi,Tĩnh/DHCP,-,CHẠY THẬT khi thử tải 4 tiến trình (SP03-SP04)
