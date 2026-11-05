@@ -1,0 +1,10 @@
+[2026-11-03 10:23:08] Khởi động SP01 với người dùng 'nv01'.
+[2026-11-03 10:27:43] [CHẶN ĐẦU VÀO] INVALID_INPUT: Mã hàng (product_code) không được để trống!
+[2026-11-03 10:28:42] [CHẶN ĐẦU VÀO] INVALID_INPUT: Loại giao dịch chỉ nhận 'NHAP' hoặc 'XUAT'!
+[2026-11-03 10:29:11] [CHẶN ĐẦU VÀO] INVALID_INPUT: Số lượng phải nằm trong khoảng từ 1 đến 10000!
+[2026-11-03 10:31:36] [CHẶN ĐẦU VÀO] INVALID_INPUT: Mã hàng (product_code) không được để trống!
+[2026-11-03 10:31:49] [CHẶN ĐẦU VÀO] INVALID_INPUT: Số lượng phải nằm trong khoảng từ 1 đến 10000!
+[2026-11-03 10:32:06] Khởi động SP01 với người dùng 'nv01'.
+[2026-11-03 10:33:21] [CHẶN ĐẦU VÀO] INVALID_INPUT: Mã hàng (product_code) không được để trống!
+[2026-11-03 10:33:29] [CHẶN ĐẦU VÀO] INVALID_INPUT: Số lượng phải là số nguyên dương lớn hơn 0!
+[2026-11-03 10:33:48] [CHẶN ĐẦU VÀO] INVALID_INPUT: Số lượng không được vượt quá 10000!
