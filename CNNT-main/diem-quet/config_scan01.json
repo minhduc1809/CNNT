@@ -1,8 +1,0 @@
-{
-  "scan_point_id": "SCAN01",
-  "name": "Điểm quét khu nhập",
-  "server_url": "",
-  "log_file": "D:/Dowloads/CNNT-main/CNNT-main/diem-quet/logs/scan01.log",
-  "api_base_url": "http://localhost:5000",
-  "queue_file": "D:/Dowloads/CNNT-main/CNNT-main/diem-quet/queue/scan01_queue.json"
-}
