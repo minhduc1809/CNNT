@@ -1,0 +1,14 @@
+﻿STT,Nguồn,Đích,Dịch vụ / cổng,Hành động,ACL trên R1-KHO,Lý do
+1,VLAN 30 điểm quét (192.168.30.0/24),SRV-KHO 192.168.10.10,TCP 8080 (API kho) và TCP 80,CHO PHÉP,ACL_QUETMA (in G0/0.30),Điểm quét gửi giao dịch và đọc tồn
+2,VLAN 30 điểm quét,SRV-KHO 192.168.10.10,UDP 53 (DNS kho.local),CHO PHÉP,ACL_QUETMA,Gọi máy chủ bằng tên thay vì IP
+3,VLAN 30 điểm quét,SRV-KHO 192.168.10.10,ICMP echo (ping),CHO PHÉP,ACL_QUETMA,Kiểm tra kết nối khi mất mạng
+4,VLAN 30 điểm quét,VLAN 20 văn phòng,ICMP echo-reply,CHO PHÉP,ACL_QUETMA,Quản trị viên ping kiểm tra được điểm quét
+5,VLAN 30 điểm quét,NAS-SAOLUU 192.168.10.20,Mọi dịch vụ,CHẶN,ACL_QUETMA (deny ip ... any),Điểm quét bị chiếm quyền cũng không xóa được bản sao lưu
+6,VLAN 30 điểm quét,VLAN 20 văn phòng / switch 192.168.10.2,Mọi dịch vụ khác,CHẶN,ACL_QUETMA,Thiết bị ở khu kho (ít kiểm soát) tách khỏi văn phòng và thiết bị mạng
+7,VLAN 20 văn phòng,SRV-KHO 192.168.10.10,TCP 8080 / 80 / UDP 53,CHO PHÉP,ACL_VANPHONG (in G0/0.20),Thủ kho / quản lý dùng ứng dụng kho
+8,PC-QUANTRI 192.168.20.12,VLAN 10 máy chủ,TCP 22 (SSH),CHO PHÉP,ACL_VANPHONG,Chỉ quản trị viên vào máy chủ và NAS
+9,PC-QUANTRI 192.168.20.12,SW1-KHO 192.168.10.2,TCP 23 (Telnet),CHO PHÉP,ACL_VANPHONG,Chỉ quản trị viên cấu hình switch
+10,VLAN 20 văn phòng,Mọi nơi,ICMP,CHO PHÉP,ACL_VANPHONG,Chẩn đoán sự cố mạng
+11,VLAN 20 văn phòng (trừ dòng 8-9),VLAN 10 máy chủ (NAS + switch + SSH),Mọi dịch vụ khác,CHẶN,ACL_VANPHONG,Bảo vệ NAS sao lưu và thiết bị mạng
+12,VLAN 10 máy chủ,Mọi nơi,Mọi dịch vụ,CHO PHÉP (không đặt ACL),-,SRV-KHO cần chép bản sao sang NAS; phản hồi về điểm quét
+13,Thiết bị lạ cắm vào cổng điểm quét,SW1-KHO Fa0/9-10; Fa0/12-16,-,TẮT CỔNG,port-security trên SW1-KHO,Chỉ máy điểm quét đã đăng ký (1 MAC/cổng) được nối mạng

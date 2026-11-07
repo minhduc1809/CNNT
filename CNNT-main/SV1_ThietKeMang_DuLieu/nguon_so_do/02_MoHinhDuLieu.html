@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>Mô hình dữ liệu</title>
+<style>html,body{margin:0;padding:0;background:#fff}</style></head>
+<body>
+<script src="helpers.js"></script>
+<script>
+init(1920, 1160);
+
+text(960, 46, "MÔ HÌNH DỮ LIỆU KHO HÀNG – CÁC BẢNG VÀ QUAN HỆ (ĐỀ TÀI 22)", { size: 26, weight: 700, anchor: "middle" });
+text(960, 76, "CSDL SQLite 3 · file schema.sql · 5 bảng bắt buộc + 1 bảng nhật ký bổ sung (AuditLog) · view đối chiếu v_doi_chieu_ton", { size: 15, fill: C.sub, anchor: "middle" });
+
+const W = 480, RH = 31, HH = 48;
+const KEY = { PK: ["#fef3c7", "#b45309"], FK: ["#dbeafe", "#1d4ed8"], "PK,FK": ["#fde68a", "#92400e"] };
+
+// Vẽ một bảng; trả về toạ độ để nối quan hệ
+function table(x, y, name, desc, col, rows, o = {}) {
+  const h = HH + rows.length * RH + 8;
+  rect(x, y, W, h, { fill: "#fff", stroke: col, sw: 2, rx: 10, dash: o.dash ?? "" });
+  el("rect", { x, y, width: W, height: HH, rx: 10, fill: col });
+  el("rect", { x, y: y + HH - 10, width: W, height: 10, fill: col });
+  text(x + 16, y + 31, name, { size: 19, weight: 700, fill: "#fff" });
+  text(x + W - 14, y + 31, desc, { size: 13.5, fill: "#ffffffdd", anchor: "end" });
+  rows.forEach(([k, n, t, note], i) => {
+    const ry = y + HH + 4 + i * RH;
+    if (i % 2) el("rect", { x: x + 2, y: ry, width: W - 4, height: RH, fill: "#f8fafc" });
+    if (k) {
+      const [bg, fg] = KEY[k];
+      const bw = k.length * 8 + 12;
+      rect(x + 10, ry + 6, bw, 19, { fill: bg, stroke: "none", rx: 4 });
+      text(x + 10 + bw / 2, ry + 20, k, { size: 11.5, weight: 700, fill: fg, anchor: "middle" });
+    }
+    text(x + 70, ry + 21, n, { size: 14.5, weight: k && k.includes("PK") ? 700 : 500 });
+    text(x + 215, ry + 21, t, { size: 12.5, fill: C.mute });
+    text(x + 278, ry + 21, note, { size: 12.5, fill: C.sub });
+  });
+  return { x, y, w: W, h, row: (i) => y + HH + 4 + i * RH + RH / 2 };
+}
+
+// Ký hiệu chân quạ: đầu "nhiều" (N) hoặc "một" (1) tại điểm (x,y), hướng vào bảng theo dx (+1 phải, -1 trái) hoặc dy
+function endMany(x, y, dir) {          // dir: 'L' bảng nằm bên trái điểm, 'R' bên phải
+  const s = dir === "R" ? 1 : -1;
+  line([[x - s * 18, y], [x, y - 10]], { stroke: C.ink, sw: 2 });
+  line([[x - s * 18, y], [x, y + 10]], { stroke: C.ink, sw: 2 });
+  line([[x - s * 18, y], [x, y]], { stroke: C.ink, sw: 2 });
+  line([[x - s * 26, y - 10], [x - s * 26, y + 10]], { stroke: C.ink, sw: 2 });
+}
+function endOne(x, y, dir) {
+  const s = dir === "R" ? 1 : -1;
+  line([[x - s * 10, y - 10], [x - s * 10, y + 10]], { stroke: C.ink, sw: 2 });
+  line([[x - s * 18, y - 10], [x - s * 18, y + 10]], { stroke: C.ink, sw: 2 });
+}
+function endOneV(x, y, dir) {          // dir 'D' bảng ở dưới, 'U' bảng ở trên
+  const s = dir === "D" ? 1 : -1;
+  line([[x - 10, y - s * 10], [x + 10, y - s * 10]], { stroke: C.ink, sw: 2 });
+  line([[x - 10, y - s * 18], [x + 10, y - s * 18]], { stroke: C.ink, sw: 2 });
+}
+
+const P = table(60, 120, "Products", "danh mục hàng", "#0f766e", [
+  ["PK", "product_code", "TEXT", "= nội dung mã vạch, 3–20 ký tự"],
+  ["", "product_name", "TEXT", "NOT NULL"],
+  ["", "unit", "TEXT", "đơn vị tính: thùng, ram, cái…"],
+  ["", "is_active", "INT", "1 = đang kinh doanh"],
+]);
+const I = table(60, 480, "Inventory", "tồn hiện tại", "#0f766e", [
+  ["PK,FK", "product_code", "TEXT", "→ Products (1 – 1)"],
+  ["", "quantity", "INT", "CHECK quantity ≥ 0"],
+  ["", "last_txn_id", "TEXT", "giao dịch gần nhất đổi tồn"],
+  ["", "updated_at", "TEXT", "thời điểm cập nhật"],
+]);
+const T = table(720, 240, "Transactions", "lịch sử nhập/xuất · chỉ thêm", "#1d4ed8", [
+  ["PK", "txn_id", "TEXT", "SP01-20261026-0001 · chống trùng"],
+  ["FK", "product_code", "TEXT", "→ Products"],
+  ["", "txn_type", "TEXT", "CHECK IN ('NHAP','XUAT')"],
+  ["", "quantity", "INT", "CHECK 1 … 10000"],
+  ["FK", "username", "TEXT", "→ Users · người thực hiện"],
+  ["FK", "scan_point_id", "TEXT", "→ ScanPoints · nơi quét"],
+  ["", "client_time", "TEXT", "giờ quét tại máy khách"],
+  ["", "server_time", "TEXT", "giờ máy chủ lưu (COMMIT)"],
+  ["", "stock_after", "INT", "tồn sau giao dịch, ≥ 0"],
+  ["", "note", "TEXT", "ghi chú (tùy chọn)"],
+]);
+const U = table(1380, 120, "Users", "tài khoản + vai trò", "#7c3aed", [
+  ["PK", "username", "TEXT", "admin, thukho01, nv01…"],
+  ["", "full_name", "TEXT", "NOT NULL"],
+  ["", "role", "TEXT", "CHECK IN 4 vai trò (R5)"],
+  ["", "password_hash", "TEXT", "SHA-256 + salt, không lưu gốc"],
+  ["", "is_active", "INT", "0 = khóa tài khoản"],
+  ["", "created_at", "TEXT", ""],
+]);
+const S = table(1380, 520, "ScanPoints", "điểm quét", "#059669", [
+  ["PK", "scan_point_id", "TEXT", "SP01, SP02 (mẫu SP##)"],
+  ["", "name", "TEXT", "Điểm quét 1 – Cổng nhập"],
+  ["", "location", "TEXT", "Khu A – cửa nhận hàng"],
+  ["", "ip_address", "TEXT", "192.168.30.11 / .12"],
+  ["", "is_active", "INT", "0 = ngừng nhận giao dịch"],
+]);
+const A = table(720, 720, "AuditLog", "bổ sung · nhật ký mọi yêu cầu", "#64748b", [
+  ["PK", "log_id", "INT", "tự tăng"],
+  ["", "log_time", "TEXT", ""],
+  ["", "username", "TEXT", "ai gửi yêu cầu"],
+  ["", "scan_point_id", "TEXT", "từ điểm quét nào"],
+  ["", "txn_id", "TEXT", "có thể trùng – không ràng buộc"],
+  ["", "action", "TEXT", "WRITE_TXN, BACKUP, RESTORE…"],
+  ["", "result", "TEXT", "OK | REJECTED | ERROR"],
+  ["", "error_code", "TEXT", "DUPLICATE_TXN, FORBIDDEN…"],
+], { dash: "7 4" });
+
+// Products 1 — N Transactions
+const y1 = P.row(0), y2 = T.row(1);
+line([[P.x + W, y1], [630, y1], [630, y2], [T.x, y2]], { stroke: C.ink, sw: 2 });
+endOne(P.x + W, y1, "L"); endMany(T.x, y2, "R");
+tag(630, y1 + 75, "1 mã hàng – N giao dịch", { size: 12, fill: C.ink, weight: 600, border: C.border });
+
+// Products 1 — 1 Inventory
+const cx = P.x + 120;
+line([[cx, P.y + P.h], [cx, I.y]], { stroke: C.ink, sw: 2 });
+endOneV(cx, P.y + P.h, "U"); endOneV(cx, I.y, "D");
+tag(cx + 120, (P.y + P.h + I.y) / 2 + 5, "1 – 1 · mỗi mã hàng đúng 1 dòng tồn", { size: 13, fill: C.ink, weight: 600, border: C.border });
+
+// Users 1 — N Transactions
+const yu = U.row(0), yt = T.row(4);
+line([[U.x, yu], [1290, yu], [1290, yt], [T.x + W, yt]], { stroke: C.ink, sw: 2 });
+endOne(U.x, yu, "R"); endMany(T.x + W, yt, "L");
+tag(1290, yu + 100, "1 người – N giao dịch", { size: 13, fill: C.ink, weight: 600, border: C.border });
+
+// ScanPoints 1 — N Transactions
+const ys = S.row(0), yt2 = T.row(5);
+line([[S.x, ys], [1320, ys], [1320, yt2], [T.x + W, yt2]], { stroke: C.ink, sw: 2 });
+endOne(S.x, ys, "R"); endMany(T.x + W, yt2, "L");
+tag(1320, 503, "1 điểm quét – N giao dịch", { size: 13, fill: C.ink, weight: 600, border: C.border });
+
+// AuditLog ··· Transactions (liên kết logic)
+line([[960, T.y + T.h], [960, A.y]], { stroke: C.mute, sw: 2, dash: "6 5" });
+tag(960, (T.y + T.h + A.y) / 2 + 5, "liên kết logic qua txn_id – không FK (ghi cả yêu cầu bị từ chối)", { size: 12.5, fill: C.sub });
+
+// Inventory ··· Transactions (đối chiếu)
+line([[I.x + W, I.row(1)], [720, I.row(1)]], { stroke: C.db, sw: 2, dash: "6 5", arrow: "aGrey" });
+tag(630, I.row(1) - 14, "đối chiếu", { size: 12.5, fill: C.db, weight: 700 });
+
+// ---- Ghi chú bên trái dưới ----
+rect(60, 740, 600, 390, { fill: C.panel, stroke: C.border, rx: 12 });
+text(80, 772, "QUY TẮC TOÀN VẸN CHÍNH", { size: 16, weight: 700 });
+[
+  "R1  txn_id là khóa chính → gửi trùng bị từ chối, tồn không đổi (KT2)",
+  "R2  product_code phải có trong Products và đang kinh doanh",
+  "R3  quantity nguyên 1…10000; txn_type chỉ NHAP / XUAT",
+  "R4  Xuất không vượt tồn – CHECK quantity ≥ 0 chặn lớp cuối",
+  "R5  Chỉ ADMIN / THUKHO / NHANVIEN được ghi; QUANLY chỉ đọc (KT3)",
+  "R7  INSERT Transactions + UPDATE Inventory trong 1 giao dịch CSDL",
+  "R8  Trigger chặn UPDATE / DELETE bảng Transactions (sổ cái bất biến)",
+  "R10 Bất biến: Inventory.quantity = Σ NHAP − Σ XUAT",
+  "     → view v_doi_chieu_ton dùng sau khôi phục / mất mạng",
+].forEach((s, i) => text(80, 806 + i * 34, s, { size: 14, fill: i === 8 ? C.db : C.ink }));
+
+// ---- Chú thích ký hiệu bên phải dưới ----
+rect(1380, 820, 480, 310, { fill: C.panel, stroke: C.border, rx: 12 });
+text(1400, 852, "KÝ HIỆU", { size: 16, weight: 700 });
+const kx = 1400;
+[["PK", "Khóa chính – giá trị duy nhất"], ["FK", "Khóa ngoại – phải tồn tại ở bảng cha"], ["PK,FK", "Vừa là khóa chính vừa là khóa ngoại"]]
+  .forEach(([k, s], i) => {
+    const [bg, fg] = KEY[k]; const bw = k.length * 8 + 12; const y = 872 + i * 34;
+    rect(kx, y, bw, 20, { fill: bg, stroke: "none", rx: 4 });
+    text(kx + bw / 2, y + 15, k, { size: 11.5, weight: 700, fill: fg, anchor: "middle" });
+    text(kx + 80, y + 15, s, { size: 14 });
+  });
+line([[kx + 30, 990], [kx + 70, 990]], { stroke: C.ink, sw: 2 }); endOne(kx + 30, 990, "L"); endMany(kx + 70, 990, "R");
+text(kx + 90, 995, "Quan hệ 1 – N (chân quạ ở phía “nhiều”)", { size: 14 });
+line([[kx + 18, 1030], [kx + 70, 1030]], { stroke: C.mute, sw: 2, dash: "6 5" });
+text(kx + 90, 1035, "Liên kết logic, không ràng buộc khóa ngoại", { size: 14 });
+text(kx, 1075, "Màu tiêu đề: xanh ngọc = hàng hóa/tồn · xanh dương =", { size: 13, fill: C.sub });
+text(kx, 1097, "giao dịch · tím = người dùng · xanh lá = điểm quét ·", { size: 13, fill: C.sub });
+text(kx, 1119, "xám nét đứt = bảng bổ sung", { size: 13, fill: C.sub });
+</script>
+</body></html>

@@ -1,0 +1,39 @@
+﻿Bảng,Trường,Kiểu SQLite,Kiểu JSON,Bắt buộc,Khóa,Ràng buộc / mặc định,Ý nghĩa,Ví dụ
+Products,product_code,TEXT,string,Có,PK,Độ dài 3–20 ký tự,Mã hàng = nội dung mã vạch in trên hàng,SP001
+Products,product_name,TEXT,string,Có,,NOT NULL,Tên hàng hóa,Nước suối 500ml
+Products,unit,TEXT,string,Có,,NOT NULL,Đơn vị tính,thùng
+Products,is_active,INTEGER,integer,Có,,0 hoặc 1; mặc định 1,1 = đang kinh doanh; 0 = ngừng (không nhận giao dịch mới),1
+Inventory,product_code,TEXT,string,Có,"PK, FK",→ Products.product_code (quan hệ 1–1),Mã hàng có dòng tồn,SP001
+Inventory,quantity,INTEGER,integer,Có,,CHECK quantity >= 0; mặc định 0,Số lượng tồn hiện tại,120
+Inventory,last_txn_id,TEXT,string,Không,,,Giao dịch gần nhất làm thay đổi tồn,SP01-20261026-0001
+Inventory,updated_at,TEXT,string (ISO 8601),Có,,Mặc định thời điểm hiện tại,Thời điểm cập nhật tồn gần nhất,2026-10-26T09:15:02
+Transactions,txn_id,TEXT,string,Có,PK,Duy nhất; dạng SPxx-yyyymmdd-nnnn (máy khách sinh),Mã định danh giao dịch – chống ghi trùng,SP01-20261026-0001
+Transactions,product_code,TEXT,string,Có,FK,→ Products.product_code,Mã hàng được nhập/xuất,SP001
+Transactions,txn_type,TEXT,string,Có,,CHECK IN ('NHAP'; 'XUAT'),Loại giao dịch,NHAP
+Transactions,quantity,INTEGER,integer,Có,,CHECK 1 <= quantity <= 10000,Số lượng của giao dịch,20
+Transactions,username,TEXT,string,Có,FK,→ Users.username; máy chủ lấy từ token,Người thực hiện,nv01
+Transactions,scan_point_id,TEXT,string,Có,FK,→ ScanPoints.scan_point_id,Điểm quét gửi giao dịch,SP01
+Transactions,client_time,TEXT,string (ISO 8601),Có,,,Thời điểm quét tại máy khách (giữ đúng giờ quét khi gửi lại sau mất mạng),2026-10-26T09:15:00
+Transactions,server_time,TEXT,string (ISO 8601),Có,,Máy chủ tự gán khi COMMIT,Thời điểm máy chủ lưu giao dịch,2026-10-26T09:15:02
+Transactions,stock_after,INTEGER,integer,Có,,CHECK stock_after >= 0,Tồn của mã hàng ngay sau giao dịch (phục vụ đối chiếu),120
+Transactions,note,TEXT,string,Không,,,Ghi chú (VD: Tồn đầu kỳ; điều chỉnh sai sót),Tồn đầu kỳ
+Users,username,TEXT,string,Có,PK,Duy nhất,Tên đăng nhập,nv01
+Users,full_name,TEXT,string,Có,,NOT NULL,Họ tên người dùng (dữ liệu giả),Trần Thị Nhân Viên 1
+Users,role,TEXT,string,Có,,CHECK IN ('ADMIN'; 'THUKHO'; 'NHANVIEN'; 'QUANLY'),Vai trò quyết định quyền (xem ma trận quyền),NHANVIEN
+Users,password_hash,TEXT,(không trả ra API),Có,,Dạng sha256$salt$hex; không lưu mật khẩu gốc,Mật khẩu đã băm,sha256$s_nv01$3257…
+Users,is_active,INTEGER,integer,Có,,0 hoặc 1; mặc định 1,0 = tài khoản bị khóa,1
+Users,created_at,TEXT,string (ISO 8601),Có,,Mặc định thời điểm hiện tại,Thời điểm tạo tài khoản,2026-10-26T08:00:00
+ScanPoints,scan_point_id,TEXT,string,Có,PK,Dạng SP + 2 chữ số (GLOB 'SP[0-9][0-9]'),Mã điểm quét,SP01
+ScanPoints,name,TEXT,string,Có,,NOT NULL,Tên điểm quét,Điểm quét 1 - Cổng nhập
+ScanPoints,location,TEXT,string,Không,,,Vị trí trong kho,Khu A - cửa nhận hàng
+ScanPoints,ip_address,TEXT,string,Không,,,IP dự kiến khi triển khai thật (bảng IP),192.168.30.11
+ScanPoints,is_active,INTEGER,integer,Có,,0 hoặc 1; mặc định 1,0 = điểm quét ngừng nhận giao dịch,1
+AuditLog,log_id,INTEGER,integer,Có,PK,Tự tăng (AUTOINCREMENT),Số thứ tự bản ghi nhật ký,108
+AuditLog,log_time,TEXT,string (ISO 8601),Có,,Mặc định thời điểm hiện tại,Thời điểm máy chủ nhận yêu cầu,2026-10-26T09:15:02
+AuditLog,username,TEXT,string,Không,,Không ràng buộc khóa ngoại,Người gửi yêu cầu (có thể sai/không tồn tại),nv02
+AuditLog,scan_point_id,TEXT,string,Không,,Không ràng buộc khóa ngoại,Điểm quét gửi yêu cầu,SP02
+AuditLog,txn_id,TEXT,string,Không,,Không duy nhất – một mã có thể xuất hiện nhiều lần,Mã giao dịch trong yêu cầu (kể cả gửi trùng),SP02-20261026-0001
+AuditLog,action,TEXT,string,Có,,NOT NULL,"Loại thao tác: WRITE_TXN, LOGIN, READ_INVENTORY, BACKUP, RESTORE",WRITE_TXN
+AuditLog,result,TEXT,string,Có,,CHECK IN ('OK'; 'REJECTED'; 'ERROR'),Kết quả xử lý,REJECTED
+AuditLog,error_code,TEXT,string,Không,,Theo danh sách mã lỗi của giao ước API,Mã lỗi khi bị từ chối,DUPLICATE_TXN
+AuditLog,detail,TEXT,string,Không,,,Mô tả chi tiết,Mã giao dịch đã được ghi trước đó

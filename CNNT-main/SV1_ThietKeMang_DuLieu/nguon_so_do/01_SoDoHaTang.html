@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>Sơ đồ hạ tầng</title>
+<style>html,body{margin:0;padding:0;background:#fff}</style></head>
+<body>
+<script src="helpers.js"></script>
+<script>
+init(1920, 1200);
+
+text(960, 46, "SƠ ĐỒ HẠ TẦNG CNTT – HỆ THỐNG QUẢN LÝ KHO HÀNG THÔNG MINH (ĐỀ TÀI 22)", { size: 26, weight: 700, anchor: "middle" });
+text(960, 76, "Kiến trúc triển khai thực tế: 1 switch chia 3 VLAN + router/firewall + 1 máy chủ ứng dụng & CSDL + NAS sao lưu · 2 điểm quét (có dây và Wi-Fi)", { size: 15, fill: C.sub, anchor: "middle" });
+
+// ---- 4 lớp ----
+const cols = [[30, 470, "① THIẾT BỊ ĐẦU CUỐI", "#475569"], [530, 380, "② MẠNG NỘI BỘ (LAN)", C.net],
+              [940, 440, "③ MÁY CHỦ XỬ LÝ", C.v10], [1410, 480, "④ LƯU TRỮ DỮ LIỆU", C.db]];
+for (const [x, w, s, col] of cols) {
+  rect(x, 100, w, 770, { fill: C.panel, stroke: "#e5e7eb", rx: 14 });
+  heading(x + 10, 110, w - 20, s, col);
+}
+
+// ---- Cột 1: đầu cuối ----
+rect(45, 162, 440, 330, { fill: "#ecfdf5", stroke: C.v30, dash: "6 4", rx: 12 });
+text(60, 186, "VLAN 30 · QUETMA · 192.168.30.0/24", { size: 14, weight: 700, fill: C.v30 });
+card(60, 200, 410, 128, "SCAN-01 · Điểm quét 1 (cổng nhập)",
+  ["PC + máy quét mã vạch USB (giả lập bàn phím)", "192.168.30.11 · có dây → SW1 Fa0/9", "Đăng nhập: nv01 (NHANVIEN)", "Sinh txn_id SP01-yyyymmdd-nnnn"], C.v30);
+card(60, 345, 410, 128, "SCAN-02 · Điểm quét 2 (cổng xuất)",
+  ["Laptop / máy quét cầm tay Wi-Fi", "192.168.30.12 · Wi-Fi KHO-QUETMA", "Đăng nhập: nv02 (NHANVIEN)", "Sinh txn_id SP02-yyyymmdd-nnnn"], C.v30);
+
+rect(45, 512, 440, 345, { fill: "#fffbeb", stroke: C.v20, dash: "6 4", rx: 12 });
+text(60, 536, "VLAN 20 · VANPHONG · 192.168.20.0/24", { size: 14, weight: 700, fill: C.v20 });
+card(60, 550, 410, 92, "PC-THUKHO · Thủ kho", ["192.168.20.11 · Fa0/5", "Ghi nhập/xuất, sửa danh mục, xem báo cáo"], C.v20);
+card(60, 652, 410, 92, "PC-QUANTRI · Quản trị", ["192.168.20.12 · Fa0/6", "Tài khoản, điểm quét, sao lưu/khôi phục"], C.v20);
+card(60, 754, 410, 92, "PC-QUANLY · Người quản lý", ["192.168.20.13 · Fa0/7", "CHỈ XEM tồn kho và lịch sử (KT3)"], C.v20);
+
+// ---- Cột 2: mạng ----
+rect(545, 162, 350, 150, { fill: C.flowBg, stroke: C.flow, rx: 10, sw: 1.2 });
+text(560, 186, "Đường đi gói tin giao dịch", { size: 15, weight: 700, fill: C.flow });
+text(560, 210, "SCAN → SW1 → R1 (định tuyến VLAN 30→10,", { size: 13.5, fill: C.ink });
+text(560, 230, "kiểm tra ACL) → SW1 → SRV-KHO :8080", { size: 13.5, fill: C.ink });
+text(560, 254, "SCAN-02 đi qua AP-KHO trước khi vào SW1", { size: 13.5, fill: C.sub });
+text(560, 278, "Điểm quét chỉ được mở: TCP 8080/80,", { size: 13.5, fill: C.sub });
+text(560, 298, "DNS 53, ping máy chủ – chặn NAS, văn phòng", { size: 13.5, fill: C.sub });
+
+card(545, 340, 350, 110, "AP-KHO · Wi-Fi", ["SSID KHO-QUETMA · WPA2-PSK/AES", "Cầu nối lớp 2 → SW1 Fa0/11 (VLAN 30)", "Dự phòng cho máy quét cầm tay"], C.net);
+card(545, 482, 350, 150, "SW1-KHO · Switch 24 cổng", ["3 VLAN: 10 máy chủ · 20 văn phòng · 30 quét", "Fa0/9-16 điểm quét · port-security", "Fa0/12-16 dự phòng SCAN-03..06", "G0/1 trunk 802.1Q · QL 192.168.10.2", "Cổng thừa Fa0/17-24: shutdown"], C.net);
+card(545, 690, 350, 165, "R1-KHO · Router / Firewall", ["Gateway .1 cho từng VLAN (G0/0.10 / .20 / .30)", "Định tuyến liên VLAN (router-on-a-stick)", "DHCP: .100–.254 cho thiết bị mới", "ACL_QUETMA · ACL_VANPHONG", "Không bắt buộc Internet"], C.net);
+
+// ---- Cột 3: máy chủ ----
+rect(955, 162, 410, 600, { fill: "#fff", stroke: C.v10, rx: 12, sw: 2 });
+el("rect", { x: 955, y: 162, width: 410, height: 70, rx: 12, fill: "#dbeafe" });
+text(975, 192, "SRV-KHO · Máy chủ ứng dụng", { size: 18, weight: 700 });
+text(975, 218, "192.168.10.10 · VLAN 10 · SW1 Fa0/1 · DNS kho.local", { size: 13.5, fill: C.sub });
+const steps = [
+  ["Tiếp nhận API (HTTP :8080)", "POST /api/transactions · GET /api/inventory"],
+  ["Xác thực tài khoản & vai trò", "token → username, role (QUANLY chỉ đọc)"],
+  ["Kiểm tra quy tắc R1–R6", "trùng txn_id? mã hàng? số lượng? tồn đủ?"],
+  ["Lưu GD + cập nhật tồn – 1 giao dịch CSDL", "④ INSERT Transactions · ⑤ UPDATE Inventory · COMMIT"],
+  ["Trả kết quả (R9)", "201 OK + stock_after  hoặc  mã lỗi 4xx"],
+];
+steps.forEach(([a, b], i) => {
+  const y = 252 + i * 98;
+  rect(975, y, 370, 74, { fill: i === 3 ? "#eff6ff" : C.panel, stroke: i === 3 ? C.flow : C.border, rx: 8 });
+  text(1012, y + 30, a, { size: 15, weight: 700 });
+  text(1012, y + 54, b, { size: 13, fill: C.sub });
+  badge(990, y + 25, i === 0 ? 2 : i < 3 ? 3 : i === 3 ? 4 : 6);
+  if (i < 4) line([[1160, y + 74], [1160, y + 96]], { stroke: C.flow, arrow: "aFlow" });
+});
+text(975, 750, "Lịch sao lưu tự động 23:00 hằng ngày → NAS", { size: 13.5, fill: C.backup, weight: 600 });
+
+// ---- Cột 4: lưu trữ ----
+rect(1425, 162, 450, 400, { fill: "#fff", stroke: C.db, rx: 12, sw: 2 });
+el("rect", { x: 1425, y: 162, width: 450, height: 70, rx: 12, fill: "#ccfbf1" });
+text(1445, 192, "CSDL kho · kho.db (SQLite 3)", { size: 18, weight: 700 });
+text(1445, 218, "Nằm trên ổ SSD của SRV-KHO · chế độ WAL", { size: 13.5, fill: C.sub });
+const tbls = [["Products", "danh mục hàng"], ["Inventory", "tồn hiện tại"], ["Transactions", "lịch sử nhập/xuất (chỉ thêm)"],
+              ["Users", "tài khoản + vai trò"], ["ScanPoints", "điểm quét SP01, SP02"], ["AuditLog", "nhật ký mọi yêu cầu"]];
+tbls.forEach(([n, d], i) => {
+  const y = 248 + i * 48;
+  rect(1445, y, 410, 38, { fill: i === 2 ? "#f0fdfa" : C.panel, stroke: i === 2 ? C.db : C.border, rx: 6 });
+  text(1462, y + 25, n, { size: 15, weight: 700, fill: C.db });
+  text(1590, y + 25, d, { size: 13.5, fill: C.sub });
+});
+
+card(1425, 640, 450, 205, "NAS-SAOLUU · Lưu trữ sao lưu", ["192.168.10.20 · VLAN 10 · SW1 Fa0/2", "Bản sao kho.db hằng ngày 23:00 (+ trước khi khôi phục)", "Giữ 7 bản ngày + 4 bản tuần (SV3 triển khai)", "Chỉ SRV-KHO truy cập được – ACL chặn VLAN 20/30", "Khôi phục → đối chiếu v_doi_chieu_ton (KT3)"], C.backup, { lh: 22 });
+
+// ---- Kết nối vật lý (xám) ----
+line([[470, 300], [520, 300], [520, 535], [545, 535]], { sw: 2.5 });
+tag(520, 478, "Fa0/9", { size: 12 });
+badge(870, 180, 2);
+line([[470, 420], [505, 420], [505, 395], [545, 395]], { stroke: C.v30, sw: 2.5, dash: "3 5" });
+tag(470, 390, "Wi-Fi", { size: 12, fill: C.v30, anchor: "start" });
+line([[720, 450], [720, 482]], { sw: 2.5 });
+for (const [y, ty] of [[596, 570], [698, 590], [800, 610]]) line([[470, y], [512, y], [512, ty], [545, ty]], { sw: 2 });
+tag(512, 652, "Fa0/5-7", { size: 12 });
+line([[720, 632], [720, 690]], { sw: 5, stroke: C.net });
+tag(720, 666, "trunk 802.1Q", { size: 12, fill: C.net, weight: 600 });
+line([[895, 515], [955, 515]], { sw: 2.5 });
+tag(925, 507, "Fa0/1", { size: 12 });
+line([[895, 610], [918, 610], [918, 812], [1395, 812], [1395, 760], [1425, 760]], { sw: 2.5 });
+tag(1160, 818, "Fa0/2 → NAS-SAOLUU", { size: 12 });
+
+// ---- Luồng dữ liệu (xanh) ----
+badge(452, 312, 1);
+line([[1365, 545], [1395, 545], [1395, 390], [1425, 390]], { stroke: C.flow, sw: 3, arrow: "aFlow" });
+tag(1395, 470, "④ ghi/đọc", { size: 12.5, fill: C.flow, weight: 700 });
+line([[1650, 562], [1650, 638]], { stroke: C.backup, sw: 3, dash: "8 5", arrow: "aBackup", arrowStart: "aBackup" });
+tag(1650, 606, "sao lưu ↓ / khôi phục ↑", { size: 12.5, fill: C.backup, weight: 700 });
+
+// ---- Nhãn chạy thật / chỉ trên sơ đồ ----
+pill(462, 208, true); pill(462, 353, true);
+pill(462, 558, false, "SƠ ĐỒ"); pill(462, 660, false, "SƠ ĐỒ"); pill(462, 762, false, "SƠ ĐỒ");
+pill(887, 348, false); pill(887, 490, false); pill(887, 698, false);
+pill(1355, 172, true); pill(1865, 172, true); pill(1865, 650, true, "CHẠY THẬT · thư mục");
+
+// ---- Dải dưới: mô phỏng + chú thích ----
+rect(30, 890, 1100, 285, { fill: "#fff", stroke: C.border, rx: 14 });
+text(50, 922, "PHẦN CHẠY THẬT vs CHỈ THỂ HIỆN TRÊN SƠ ĐỒ – khi mô phỏng, mỗi thành phần được thay bằng:", { size: 17, weight: 700 });
+const sim = [
+  ["SCAN-01 / SCAN-02", "2 cửa sổ chạy client: client.py --scan-point SP01 --user nv01  /  SP02 nv02 (SV2)"],
+  ["Máy quét mã vạch", "Gõ mã từ bàn phím hoặc file danh sách mã – máy quét USB thật cũng chỉ “gõ” như bàn phím"],
+  ["Switch / Wi-Fi / Router", "Packet Tracer (cấu hình & kết nối) + loopback 127.0.0.1 hoặc mạng host-only khi chạy phần mềm"],
+  ["SRV-KHO", "server.py lắng nghe cổng 8080 trên laptop của nhóm (SV3)"],
+  ["CSDL kho", "File SQLite du_lieu/kho.db tạo từ schema.sql + seed_data.sql"],
+  ["NAS-SAOLUU", "Thư mục backup/ (hoặc ổ USB) chứa các bản sao kho_yyyymmdd_hhmm.db"],
+];
+const real = [true, true, false, true, true, true];
+sim.forEach(([a, b], i) => {
+  const y = 958 + i * 35;
+  text(50, y, a, { size: 14.5, weight: 700, fill: C.v10 });
+  text(265, y, b, { size: 14.5, fill: C.ink });
+  pill(1115, y - 16, real[i]);
+});
+
+rect(1150, 890, 740, 285, { fill: "#fff", stroke: C.border, rx: 14 });
+text(1170, 922, "CHÚ THÍCH", { size: 17, weight: 700 });
+line([[1172, 950], [1240, 950]], { sw: 2.5 }); text(1255, 955, "Cáp mạng (cổng switch ghi trên nhãn)", { size: 14 });
+line([[1172, 980], [1240, 980]], { sw: 2.5, stroke: C.v30, dash: "3 5" }); text(1255, 985, "Kết nối Wi-Fi", { size: 14 });
+line([[1172, 1010], [1240, 1010]], { sw: 5, stroke: C.net }); text(1255, 1015, "Trunk mang nhiều VLAN", { size: 14 });
+line([[1172, 1040], [1235, 1040]], { sw: 3, stroke: C.flow, arrow: "aFlow" }); text(1255, 1045, "Luồng xử lý giao dịch", { size: 14 });
+line([[1172, 1070], [1235, 1070]], { sw: 3, stroke: C.backup, dash: "8 5", arrow: "aBackup" }); text(1255, 1075, "Sao lưu / khôi phục", { size: 14 });
+// các bước luồng dữ liệu, xếp cột phải
+const fx = 1555;
+rect(fx - 10, 930, 330, 162, { fill: C.flowBg, stroke: "none", rx: 8 });
+["① Quét / nhập mã hàng", "② Gửi giao dịch JSON", "③ Kiểm tra quy tắc", "④ Lưu giao dịch (INSERT)", "⑤ Cập nhật tồn (cùng COMMIT)", "⑥ Phản hồi / mã lỗi"]
+  .forEach((s, i) => text(fx, 954 + i * 25, s, { size: 14.5, fill: C.flow, weight: 600 }));
+pill(1258, 1092, true); pill(1360, 1092, false); text(1372, 1108, "= chạy phần mềm thật · chỉ trên sơ đồ/Packet Tracer", { size: 13.5, fill: C.sub });
+text(1170, 1136, "Màu viền thẻ: xanh lá = VLAN 30 điểm quét · vàng = VLAN 20 văn phòng · tím = thiết bị mạng ·", { size: 13.5, fill: C.sub });
+text(1170, 1158, "xanh dương = máy chủ (VLAN 10) · xanh ngọc = CSDL · cam = sao lưu. Chi tiết IP: BangDiaChiIP.csv", { size: 13.5, fill: C.sub });
+</script>
+</body></html>

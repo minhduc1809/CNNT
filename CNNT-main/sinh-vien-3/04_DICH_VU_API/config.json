@@ -1,0 +1,20 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "debug": false
+  },
+  "database": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "wh_store",
+    "password": "StoreUser@2026",
+    "database": "smart_warehouse",
+    "use_stored_procedure": true,
+    "pool_size": 10
+  },
+  "auth": {
+    "jwt_secret": "smart-warehouse-secret-key-2026-ptit-team22",
+    "token_expire_hours": 8
+  }
+}

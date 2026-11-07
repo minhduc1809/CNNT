@@ -1,0 +1,16 @@
+{
+  "_ghi_chu": "Tham số thử tải Đề tài 22 (SV1-11). Mỗi tiến trình = 1 điểm quét: tiến trình i dùng SP0i và tài khoản nv0i. Kịch bản 4 điểm cần chạy seed_mo_rong_4_diem.sql trên CSDL của máy chủ.",
+  "url": "http://127.0.0.1:8080",
+  "mat_khau": "Kho@2026",
+  "kich_ban": [
+    { "ten": "2_diem_quet", "so_tien_trinh": 2 },
+    { "ten": "4_diem_quet", "so_tien_trinh": 4 }
+  ],
+  "thoi_gian_moi_kich_ban_s": 60,
+  "khoang_cach_giua_2_lan_quet_s": 3.0,
+  "ti_le_gui_trung": 0.05,
+  "ma_hang": ["SP001", "SP002", "SP003", "SP004"],
+  "timeout_s": 5,
+  "so_giao_dich_doc_lai_kiem_tra": 20,
+  "nghi_giua_2_kich_ban_s": 5
+}
