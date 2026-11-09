@@ -4,7 +4,7 @@
   "client_ip": "192.168.20.12",
   "api_base_url": "http://127.0.0.1:5000",
   "default_username": "thukho_demo",
-  "seq_file": "seq_SCAN02.txt",
+  "seq_file": "queue/seq_SCAN02.txt",
   "log_file": "logs/scan02.log",
   "queue_file": "queue/scan02_queue.json",
   "timeout_seconds": 5,
