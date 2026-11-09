@@ -1,6 +1,6 @@
 # Bảng đối chiếu tên trường – Đề tài 22
 
-- Thời điểm chạy: **2026-11-09 11:25:17**
+- Thời điểm chạy: **2026-11-09 11:35:06**
 - Chuẩn: `du_lieu/TuDienDuLieu.csv` (28 tên trường khác nhau, 38 trường trong 6 bảng) + 14 khóa JSON của giao ước API
 - Mã SV2: `E:\CNNT\diem-quet` · Mã SV3: `E:\CNNT\sinh-vien-3` · CSDL SV3: `(không đọc)`
 - Kết quả: **38/42 khớp**, 4 cần xử lý

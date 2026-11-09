@@ -1,40 +1,49 @@
-============================================================================
- KỊCH BẢN CHẠY THẬT GIỮA 2 MÁY: WINDOWS (SP01, SP02) <-> UBUNTU VM (SERVER)
-============================================================================
+====================================================================================
+ KỊCH BẢN DỰNG & KIỂM CHỨNG HẠ TẦNG IP THẬT: 192.168.20.11, 192.168.20.12 -> 192.168.10.10
+====================================================================================
 
-[BƯỚC 1] Khởi động máy chủ API SV3 bên trong máy ảo Linux (Ubuntu-22.04)...
-[*] Thông tin card mạng eth0 trên máy ảo Ubuntu-22.04:
-    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1280 qdisc mq state UP group default qlen 1000
-        inet 172.23.155.222/20 brd 172.23.159.255 scope global eth0
-           valid_lft forever preferred_lft forever
-[*] Địa chỉ API Máy chủ Linux (Ubuntu-22.04): http://172.23.155.222:5000
+=== [1] CẤU HÌNH ĐỊA CHỈ IP TRÊN GIAO DIỆN MẠNG ETH0 (ip -4 addr show eth0) ===
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1280 qdisc mq state UP group default qlen 1000
+    inet 172.23.155.222/20 brd 172.23.159.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.10.10/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.20.11/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.20.12/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
 
-[BƯỚC 2] Kiểm tra kết nối mạng (ping 172.23.155.222) từ máy trạm Windows sang máy ảo Linux:
-    Pinging 172.23.155.222 with 32 bytes of data:
-    Reply from 172.23.155.222: bytes=32 time<1ms TTL=64
-    Reply from 172.23.155.222: bytes=32 time<1ms TTL=64
-    
-    Ping statistics for 172.23.155.222:
-        Packets: Sent = 2, Received = 2, Lost = 0 (0% loss),
-    Approximate round trip times in milli-seconds:
-        Minimum = 0ms, Maximum = 0ms, Average = 0ms
+=== [2] KIỂM TRA KẾT NỐI PING TỪ SP01 (192.168.20.11) & SP02 (192.168.20.12) TỚI MÁY CHỦ (192.168.10.10) ===
+PING 192.168.10.10 (192.168.10.10) from 192.168.20.11 : 56(84) bytes of data.
+64 bytes from 192.168.10.10: icmp_seq=1 ttl=64 time=0.023 ms
+64 bytes from 192.168.10.10: icmp_seq=2 ttl=64 time=0.038 ms
 
-[BƯỚC 3] Điểm quét SP01 & SP02 (Windows) gửi giao dịch qua mạng sang http://172.23.155.222:5000:
-    + Đăng nhập SP01 (nv01)        -> token: token-NV01-employee
-    + Đăng nhập SP02 (thukho_demo) -> token: token-TK01-warehouse
-    + Tra cứu tồn kho SP001 trên máy ảo Linux trước khi quét: {"product_id":"SP001","product_name":"San pham mau 001","quantity":100,"unit":"cai","updated_at":"2026-11-09T11:24:35.987237"}
+--- 192.168.10.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1023ms
+rtt min/avg/max/mdev = 0.023/0.030/0.038/0.007 ms
 
-    [SP01 -> 172.23.155.222:5000] POST /api/transactions (27.43ms) -> HTTP 201
-    Phản hồi từ máy ảo Linux: {"message":"Giao d\u1ecbch \u0111\u00e3 l\u01b0u th\u00e0nh c\u00f4ng","operator":{"role":"employee","user_id":"NV01"},"status":"OK","stock_after":125,"txn_id":"SP01-20261109-0101"}
+PING 192.168.10.10 (192.168.10.10) from 192.168.20.12 : 56(84) bytes of data.
+64 bytes from 192.168.10.10: icmp_seq=1 ttl=64 time=0.016 ms
+64 bytes from 192.168.10.10: icmp_seq=2 ttl=64 time=0.044 ms
 
-    [SP02 -> 172.23.155.222:5000] POST /api/transactions (7.31ms) -> HTTP 201
-    Phản hồi từ máy ảo Linux: {"message":"Giao d\u1ecbch \u0111\u00e3 l\u01b0u th\u00e0nh c\u00f4ng","operator":{"role":"warehouse","user_id":"TK01"},"status":"OK","stock_after":115,"txn_id":"SP02-20261109-0101"}
+--- 192.168.10.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1026ms
+rtt min/avg/max/mdev = 0.016/0.030/0.044/0.014 ms
 
-    [ĐỌC LẠI TỪ MÁY ẢO LINUX] GET /api/transactions/SP01-20261109-0101 -> HTTP 200
-    Bản ghi lưu trên Linux: {"product_code":"SP001","product_id":"SP001","quantity":25,"scan_point_id":"SP01","stock_after":125,"transaction_id":"SP01-20261109-0101","transaction_time":"2026-11-09T11:24:36.014488","transaction_type":"IMPORT","txn_id":"SP01-20261109-0101","txn_type":"NHAP","user_id":"NV01"}
+=== [3] ĐIỂM QUÉT SP01 (192.168.20.11) & SP02 (192.168.20.12) GỬI GIAO DỊCH TỚI http://192.168.10.10:5000 ===
+[*] Tồn kho ban đầu trên SRV-KHO (192.168.10.10): {"product_id":"SP001","product_name":"San pham mau 001","quantity":100,"unit":"cai","updated_at":"2026-11-09T11:33:18.727678"}
 
-============================================================================
- [KẾT LUẬN] Kiểm chứng thành công mô hình 2 máy qua mạng thật:
-   - Máy chủ Linux (Ubuntu-22.04 WSL2) : 172.23.155.222:5000
-   - Máy trạm Windows (SP01 & SP02)    : Gửi NHAP/XUAT và đọc lại thành công 100%!
-============================================================================
+[SP01: 192.168.20.11 -> SRV-KHO: 192.168.10.10:5000] (3.25ms) -> HTTP 201
+    Phản hồi: {"message":"Giao d\u1ecbch \u0111\u00e3 l\u01b0u th\u00e0nh c\u00f4ng","operator":{"role":"employee","user_id":"NV01"},"status":"OK","stock_after":125,"txn_id":"SP01-20261109-0101"}
+
+[SP02: 192.168.20.12 -> SRV-KHO: 192.168.10.10:5000] (5.65ms) -> HTTP 201
+    Phản hồi: {"message":"Giao d\u1ecbch \u0111\u00e3 l\u01b0u th\u00e0nh c\u00f4ng","operator":{"role":"warehouse","user_id":"TK01"},"status":"OK","stock_after":115,"txn_id":"SP02-20261109-0101"}
+
+[ĐỌC LẠI TỪ 192.168.10.10:5000] GET /api/transactions/SP01-20261109-0101 -> HTTP 200
+    Bản ghi: {"product_code":"SP001","product_id":"SP001","quantity":25,"scan_point_id":"SP01","stock_after":125,"transaction_id":"SP01-20261109-0101","transaction_time":"2026-11-09T11:33:18.730957","transaction_type":"IMPORT","txn_id":"SP01-20261109-0101","txn_type":"NHAP","user_id":"NV01"}
+
+=== [4] NHẬT KÝ MÁY CHỦ SRV-KHO (192.168.10.10) GHI NHẬN ĐÚNG IP NGUỒN 192.168.20.11 & 192.168.20.12 ===
+192.168.20.11 - - [09/Nov/2026 11:33:18] "GET /api/inventory/SP001 HTTP/1.1" 200 -
+192.168.20.11 - - [09/Nov/2026 11:33:18] "POST /api/transactions HTTP/1.1" 201 -
+192.168.20.12 - - [09/Nov/2026 11:33:18] "POST /api/transactions HTTP/1.1" 201 -
+192.168.20.11 - - [09/Nov/2026 11:33:18] "GET /api/transactions/SP01-20261109-0101 HTTP/1.1" 200 -

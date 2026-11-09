@@ -1,9 +1,38 @@
 import json
 import os
+import socket
 import sys
 import time
 from datetime import datetime
 import requests
+from requests.adapters import HTTPAdapter
+
+
+class SourceIPAdapter(HTTPAdapter):
+    """Gắn cứng IP nguồn (192.168.20.11 / 192.168.20.12) cho kết nối HTTP của điểm quét."""
+
+    def __init__(self, source_ip: str, **kwargs):
+        self.source_ip = source_ip
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["source_address"] = (self.source_ip, 0)
+        return super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
+
+
+def get_http_session(client_ip: str = "") -> requests.Session:
+    session = requests.Session()
+    if client_ip:
+        try:
+            test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_sock.bind((client_ip, 0))
+            test_sock.close()
+            adapter = SourceIPAdapter(client_ip)
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+        except OSError:
+            pass
+    return session
 
 
 def resolve_path(config_path: str, file_path: str) -> str:
@@ -196,13 +225,14 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
         "Content-Type": "application/json",
         "Authorization": f"Bearer {token}",
     }
+    session = get_http_session(config.get("client_ip", ""))
 
     max_attempts = len(delays) + 1
     for attempt in range(1, max_attempts + 1):
         start_time = time.time()
         try:
             write_log(log_file, f"[GỬI LẦN {attempt}/{max_attempts}] txn_id={txn_id} | trạng thái=CHO_XAC_NHAN")
-            resp = requests.post(
+            resp = session.post(
                 f"{base_url}/api/transactions",
                 json=payload,
                 headers=headers,
