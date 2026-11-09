@@ -1,8 +1,12 @@
 {
   "scan_point_id": "SCAN02",
   "name": "Điểm quét khu xuất",
-  "server_url": "",
-  "log_file": "D:/Dowloads/CNNT-main/CNNT-main/diem-quet/logs/scan02.log",
-  "api_base_url": "http://localhost:5000",
-  "queue_file": "D:/Dowloads/CNNT-main/CNNT-main/diem-quet/queue/scan02_queue.json"
+  "client_ip": "192.168.20.12",
+  "api_base_url": "http://127.0.0.1:5000",
+  "default_username": "thukho_demo",
+  "seq_file": "seq_SCAN02.txt",
+  "log_file": "logs/scan02.log",
+  "queue_file": "queue/scan02_queue.json",
+  "timeout_seconds": 5,
+  "retry_delays": [5, 10, 20, 60]
 }

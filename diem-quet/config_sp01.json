@@ -1,7 +1,7 @@
 {
   "scan_point_id": "SP01",
   "client_ip": "192.168.20.11",
-  "api_base_url": "http://127.0.0.1:8080",
+  "api_base_url": "http://127.0.0.1:5000",
   "default_username": "nv01",
   "seq_file": "seq_SP01.txt",
   "queue_file": "queue_SP01.jsonl",

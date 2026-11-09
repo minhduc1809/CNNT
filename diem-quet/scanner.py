@@ -18,6 +18,9 @@ def write_log(log_file: str, message: str):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {message}"
     print(line)
+    parent = os.path.dirname(log_file)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(line + "\n")
 
@@ -34,6 +37,9 @@ def get_next_seq_no(seq_file: str) -> int:
         except ValueError:
             seq = 0
     seq += 1
+    parent = os.path.dirname(seq_file)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(seq_file, "w", encoding="utf-8") as f:
         f.write(str(seq))
     return seq
@@ -85,6 +91,9 @@ def load_queue(queue_file: str) -> list:
 
 
 def save_queue(queue_file: str, items: list):
+    parent = os.path.dirname(queue_file)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(queue_file, "w", encoding="utf-8") as f:
         for item in items:
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
@@ -302,7 +311,8 @@ def main():
                 continue
 
             product_code, txn_type, quantity = cleaned
-            seq_no = get_next_seq_no(config["seq_file"])
+            seq_file = config.get("seq_file", f"seq_{scan_point_id}.txt")
+            seq_no = get_next_seq_no(seq_file)
             txn_id = generate_txn_id(scan_point_id, seq_no)
 
             payload = build_payload(txn_id, product_code, txn_type, quantity, scan_point_id)

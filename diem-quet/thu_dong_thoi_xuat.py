@@ -17,7 +17,7 @@ import time
 import requests
 
 
-def login(base_url: str, username: str = "nv01", password: str = "Kho@2026") -> str:
+def login(base_url: str, username: str = "thukho_demo", password: str = "Kho@2026") -> str:
     try:
         r = requests.post(f"{base_url}/api/login", json={"username": username, "password": password}, timeout=5)
         if r.status_code == 200:
@@ -81,7 +81,7 @@ def send_scan_request(base_url: str, scan_point_id: str, product_code: str, quan
 
 def main():
     parser = argparse.ArgumentParser(description="Script thử nghiệm xuất đồng thời 2 điểm quét (SV2 nâng cao)")
-    parser.add_argument("--base-url", default="http://127.0.0.1:8080", help="Địa chỉ API máy chủ")
+    parser.add_argument("--base-url", default="http://127.0.0.1:5000", help="Địa chỉ API máy chủ")
     parser.add_argument("--code", default="SP001", help="Mã hàng cần thử xuất")
     parser.add_argument("--qty", type=int, default=70, help="Số lượng mỗi điểm quét xuất (đặt > 50% tồn kho)")
     args = parser.parse_args()
