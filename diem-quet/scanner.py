@@ -402,11 +402,15 @@ def build_payload(txn_id: str, product_code: str, txn_type: str, quantity: int, 
 
 def main():
     if len(sys.argv) < 2:
-        print("Cách chạy: python scanner.py <đường_dẫn_file_config.json>")
-        print("Ví dụ:     python scanner.py config_sp01.json")
+        print("Cách chạy: python scanner.py <đường_dẫn_file_config.json> [--url http://IP_MAY_CHU:5000]")
+        print("Ví dụ:     python scanner.py config_sp01.json --url http://172.23.155.222:5000")
         sys.exit(1)
 
     config = load_config(sys.argv[1])
+    if len(sys.argv) >= 4 and sys.argv[2] == "--url":
+        config["api_base_url"] = sys.argv[3].rstrip("/")
+    elif os.getenv("API_BASE_URL"):
+        config["api_base_url"] = os.getenv("API_BASE_URL").rstrip("/")
     scan_point_id = config.get("scan_point_id", "SP01")
     log_file = config["log_file"]
     queue_file = config["queue_file"]
