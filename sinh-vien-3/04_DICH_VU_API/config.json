@@ -8,7 +8,7 @@
     "host": "127.0.0.1",
     "port": 3306,
     "user": "wh_store",
-    "password": "StoreUser@2026",
+    "password": "123456",
     "database": "smart_warehouse",
     "use_stored_procedure": true,
     "pool_size": 10

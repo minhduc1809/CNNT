@@ -50,11 +50,17 @@ def test_authentication_rbac():
     tokens = {}
 
     def tc01():
-        r = requests.post(f"{BASE_URL}/api/login", json={"username": "viewer_demo"})
+        r = requests.post(f"{BASE_URL}/api/login", json={"username": "viewer_demo", "password": "View@2026"})
         d = r.json()
         tokens["viewer"] = d.get("token")
         return r.status_code == 200 and d.get("role") == "viewer", f"HTTP {r.status_code}, Token: {tokens['viewer']}"
     run_test("TC01", "Đăng nhập tài khoản Viewer (viewer_demo)", tc01)
+
+    def tc01b():
+        r = requests.post(f"{BASE_URL}/api/login", json={"username": "viewer_demo", "password": "SaiMatKhau123"})
+        d = r.json()
+        return r.status_code == 401 and d.get("error_code") == "LOGIN_FAILED", f"HTTP {r.status_code}, error_code: {d.get('error_code')}"
+    run_test("TC01b", "Đăng nhập thất bại khi sai mật khẩu (401 LOGIN_FAILED)", tc01b)
 
     def tc02():
         ts = int(time.time() * 1000)
@@ -77,7 +83,7 @@ def test_authentication_rbac():
     run_test("TC03", "Viewer cố tình ghi XUẤT KHO -> Bị từ chối 403 Forbidden", tc03)
 
     def tc04():
-        r = requests.post(f"{BASE_URL}/api/login", json={"username": "nhanvien_demo"})
+        r = requests.post(f"{BASE_URL}/api/login", json={"username": "nhanvien_demo", "password": "Kho@2026"})
         d = r.json()
         tokens["employee"] = d.get("token")
         return r.status_code == 200 and d.get("role") == "employee", f"HTTP {r.status_code}, Token: {tokens['employee']}"
@@ -104,7 +110,7 @@ def test_authentication_rbac():
     run_test("TC06", "Nhân viên cố tình XUẤT KHO -> Bị từ chối 403 Forbidden", tc06)
 
     def tc07():
-        r = requests.post(f"{BASE_URL}/api/login", json={"username": "thukho_demo"})
+        r = requests.post(f"{BASE_URL}/api/login", json={"username": "thukho_demo", "password": "Kho@2026"})
         d = r.json()
         tokens["warehouse"] = d.get("token")
         return r.status_code == 200 and d.get("role") == "warehouse", f"HTTP {r.status_code}, Token: {tokens['warehouse']}"
@@ -126,7 +132,7 @@ def test_authentication_rbac():
     run_test("TC09", "Thủ kho cố tình xem danh sách Users -> Bị từ chối 403 Forbidden", tc09)
 
     def tc10():
-        r = requests.post(f"{BASE_URL}/api/login", json={"username": "admin_demo"})
+        r = requests.post(f"{BASE_URL}/api/login", json={"username": "admin_demo", "password": "Admin@2026"})
         d = r.json()
         tokens["admin"] = d.get("token")
         return r.status_code == 200 and d.get("role") == "admin", f"HTTP {r.status_code}, Token: {tokens['admin']}"
@@ -339,7 +345,7 @@ if __name__ == "__main__":
     elapsed = round(time.time() - start_time, 2)
     print("\n" + "=" * 75)
     print(f"{Colors.BOLD}TỔNG KẾT KIỂM THỬ HỆ THỐNG:")
-    print(f"  - Tổng số ca kiểm thử: 25")
+    print(f"  - Tổng số ca kiểm thử: {total_passed + total_failed}")
     print(f"  - {Colors.GREEN}Thành công (PASS): {total_passed}{Colors.RESET}")
     print(f"  - {Colors.RED}Thất bại   (FAIL): {total_failed}{Colors.RESET}")
     print(f"  - Thời gian thực thi : {elapsed}s")

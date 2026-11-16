@@ -13,7 +13,17 @@ Phân quyền 3 tầng:
      - Kiểm soát lỗi, xác thực tham số đầu vào và mã lỗi đồng bộ
 """
 
+import hashlib
 import os
+import sys
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from datetime import datetime
 from flask import Flask, request, jsonify
 import pymysql
@@ -27,7 +37,7 @@ load_dotenv()
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
 DB_PORT = int(os.getenv("DB_PORT", 3306))
 DB_USER = os.getenv("DB_USER", "wh_store")
-DB_PASS = os.getenv("DB_PASS", "StoreUser@2026")
+DB_PASS = os.getenv("DB_PASS", "123456")
 DB_NAME = os.getenv("DB_NAME", "smart_warehouse")
 
 
@@ -84,7 +94,7 @@ def get_user_info(user_id_or_username: str):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT user_id, username, full_name, role FROM users WHERE user_id = %s OR username = %s",
+                "SELECT user_id, username, full_name, role, password_hash FROM users WHERE user_id = %s OR username = %s",
                 (user_id_or_username, user_id_or_username),
             )
             return cur.fetchone()
@@ -127,10 +137,30 @@ def login():
         return jsonify({"error_code": "INVALID_REQUEST", "message": "Yêu cầu phải có dữ liệu JSON"}), 400
 
     username = data.get("username", "").strip()
-    user = get_user_info(username)
+    password = data.get("password", "").strip()
+
+    if not username or not password:
+        return jsonify({"error_code": "MISSING_FIELDS", "message": "Thiếu username hoặc password"}), 400
+
+    # Truy vấn kèm password_hash để xác thực
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT user_id, username, full_name, role, password_hash FROM users WHERE username = %s",
+                (username,),
+            )
+            user = cur.fetchone()
+    finally:
+        conn.close()
 
     if not user:
         return jsonify({"error_code": "LOGIN_FAILED", "message": f"Không tìm thấy tài khoản '{username}'"}), 401
+
+    # Xác thực mật khẩu: so sánh SHA-256
+    input_hash = hashlib.sha256(password.encode()).hexdigest()
+    if input_hash != user.get("password_hash", ""):
+        return jsonify({"error_code": "LOGIN_FAILED", "message": "Sai mật khẩu"}), 401
 
     token = f"token-{user['user_id']}-{user['role']}"
     return jsonify({

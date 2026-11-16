@@ -213,16 +213,23 @@ INSERT INTO Inventory (product_id, quantity) VALUES
 ON DUPLICATE KEY UPDATE
   quantity = Inventory.quantity;
 
-INSERT INTO Users (user_id, username, full_name, role) VALUES
-('AD01',   'admin_demo',    'Quan tri vien mau', 'admin'),
-('NV01',   'nhanvien_demo','Nhan vien mau',     'employee'),
-('NV02',   'nv02_demo',     'Nhan vien mau 2',   'employee'),
-('TK01',   'thukho_demo',   'Thu kho mau',       'warehouse'),
-('VIEW01', 'viewer_demo',   'Tai khoan chi xem', 'viewer')
+-- Mat khau: SHA-256 khong muoi.
+-- AD01/admin_demo   : Admin@2026
+-- NV01/nhanvien_demo: Kho@2026
+-- NV02/nv02_demo    : Kho@2026
+-- TK01/thukho_demo  : Kho@2026
+-- VIEW01/viewer_demo: View@2026
+INSERT INTO Users (user_id, username, full_name, role, password_hash) VALUES
+('AD01',   'admin_demo',    'Quan tri vien mau', 'admin',     'a36aef5a11c4073fbe60314fc9df530a9d5f986533594d1f5190742ff9e0e408'),
+('NV01',   'nhanvien_demo', 'Nhan vien mau',     'employee',  'ee16ffb887af634aac40042af9bd9eeef0692617e531987d43df6cb55279b7a5'),
+('NV02',   'nv02_demo',     'Nhan vien mau 2',   'employee',  'ee16ffb887af634aac40042af9bd9eeef0692617e531987d43df6cb55279b7a5'),
+('TK01',   'thukho_demo',   'Thu kho mau',       'warehouse', 'ee16ffb887af634aac40042af9bd9eeef0692617e531987d43df6cb55279b7a5'),
+('VIEW01', 'viewer_demo',   'Tai khoan chi xem', 'viewer',    '9f9f20ec6958d3c176c17ea3eb9731b053b6fc753367e3c25e3fb2578ec0f4e6')
 ON DUPLICATE KEY UPDATE
-  username = VALUES(username),
-  full_name = VALUES(full_name),
-  role = VALUES(role);
+  username      = VALUES(username),
+  full_name     = VALUES(full_name),
+  role          = VALUES(role),
+  password_hash = VALUES(password_hash);
 
 INSERT INTO ScanPoints (scan_point_id, scan_point_name) VALUES
 ('SCAN01', 'Diem quet kho 01'),

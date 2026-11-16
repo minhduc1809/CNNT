@@ -28,10 +28,11 @@ CREATE TABLE IF NOT EXISTS Inventory (
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Users (
-    user_id   VARCHAR(30)  NOT NULL,
-    username  VARCHAR(60)  NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    role      ENUM('admin','warehouse','employee','viewer') NOT NULL,
+    user_id       VARCHAR(30)  NOT NULL,
+    username      VARCHAR(60)  NOT NULL,
+    full_name     VARCHAR(100) NOT NULL,
+    role          ENUM('admin','warehouse','employee','viewer') NOT NULL,
+    password_hash VARCHAR(64)  NOT NULL COMMENT 'SHA-256 cua mat khau; khong luu mat khau ro',
     PRIMARY KEY (user_id),
     UNIQUE KEY uq_users_username (username)
 ) ENGINE=InnoDB;

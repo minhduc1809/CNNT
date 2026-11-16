@@ -1,0 +1,38 @@
+﻿# 02_my.ini.mau  (SV3 - CV01)
+# Mau cau hinh MySQL tren Windows. Doi chieu voi file my.ini that cua may chu roi chep tung dong can thiet.
+# Vi tri thuong gap (MySQL 8.0): C:\ProgramData\MySQL\MySQL Server 8.0\my.ini
+# Sau khi sua: Restart dich vu MySQL (services.msc -> MySQL80 -> Restart).
+# KHONG xoa cac dong datadir/basedir san co trong file that.
+
+[client]
+port=3306
+default-character-set=utf8mb4
+
+[mysqld]
+port=3306
+
+# Chi lang nghe localhost: dich vu API cung may ket noi vao, cac may khac (ke ca diem quet) khong vao duoc cong CSDL
+bind-address=127.0.0.1
+
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+
+# Gio nhat quan voi mui gio may chu (UTC+7)
+default-time-zone='+07:00'
+
+# Che do SQL nghiem ngat (khong tu y cat gia tri sai)
+sql_mode=STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_DATE
+
+# Giao dich an toan: ghi log ra dia khi COMMIT (chong mat giao dich khi tat dot ngot)
+default-storage-engine=InnoDB
+innodb_flush_log_at_trx_commit=1
+transaction-isolation=REPEATABLE-READ
+
+# Gioi han ket noi cho do an (2-4 diem quet + vai tai khoan)
+max_connections=50
+
+# Nhat ky de lay minh chung va tim loi
+log_error=wh_mysql_error.log
+slow_query_log=1
+slow_query_log_file=wh_mysql_slow.log
+long_query_time=1

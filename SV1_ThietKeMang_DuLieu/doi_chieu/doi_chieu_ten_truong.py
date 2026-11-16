@@ -74,7 +74,7 @@ def quet_ma(thu_muc):
     if not thu_muc or not os.path.isdir(thu_muc):
         return gap
     for goc, _, files in os.walk(thu_muc):
-        if any(x in goc for x in (os.sep + ".git", "node_modules", "__pycache__", os.sep + "venv")):
+        if any(x in goc for x in (os.sep + ".git", "node_modules", "__pycache__", os.sep + "venv", os.sep + ".venv", ".venv")):
             continue
         for ten in files:
             if not ten.lower().endswith(DUOI):
