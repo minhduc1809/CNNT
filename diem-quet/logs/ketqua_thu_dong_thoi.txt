@@ -1,0 +1,20 @@
+======================================================================
+ KỊCH BẢN THỬ NGHIỆM ĐỒNG THỜI XUẤT KHO TỪ SP01 & SP02 (SV2 NÂNG CAO)
+ Máy chủ : http://127.0.0.1:5000
+ Mã hàng : SP001 | Số lượng mỗi bên yêu cầu xuất: 70
+======================================================================
+[*] Tồn kho ban đầu của SP001: 100
+[*] Đang kích hoạt 2 luồng đồng thời...
+
+--- KẾT QUẢ PHẢN HỒI ---
+ điểm quét: SP01 | txn_id: SP01-20261109-3888 | HTTP 201 | trễ: 6.02ms
+   phản hồi: {"message": "Giao dịch đã lưu thành công", "operator": {"role": "warehouse", "user_id": "TK01"}, "status": "OK", "stock_after": 30, "txn_id": "SP01-20261109-3888"}
+ điểm quét: SP02 | txn_id: SP02-20261109-3890 | HTTP 400 | trễ: 7.77ms
+   phản hồi: {"error_code": "INSUFFICIENT_STOCK", "message": "Tồn kho không đủ để xuất"}
+
+[*] Tồn kho cuối cùng của SP001: 30
+
+--- KẾT LUẬN KIỂM CHỨNG ---
+[ĐẠT] Tồn kho không bị âm (30 >= 0).
+      Số giao dịch thành công: 1, Số giao dịch bị chặn do thiếu tồn: 1.
+      Cơ chế transaction và khóa cách ly CSDL đã hoạt động chính xác!

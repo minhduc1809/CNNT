@@ -1,0 +1,31 @@
+[2026-11-09 10:14:08] Khởi động SP01 với người dùng 'nv01'.
+[2026-11-09 10:14:23] [KIỂM TRA KẾT NỐI & TỒN KHO] Máy chủ http://127.0.0.1:5000 phản hồi 200 OK (6.42ms) -> Mặt hàng SP001: Tồn hiện tại = 100
+[2026-11-09 10:15:14] [CHẶN ĐẦU VÀO] ('', 'NHAP', '10') -> INVALID_INPUT: Mã hàng (product_code) không được để trống!
+[2026-11-09 10:15:38] [CHẶN ĐẦU VÀO] ('SP001', 'CHUYEN_KHO', '10') -> INVALID_INPUT: Loại giao dịch chỉ nhận 'NHAP' hoặc 'XUAT'!
+[2026-11-09 10:16:02] [CHẶN ĐẦU VÀO] ('SP001', 'XUAT', '-5') -> INVALID_INPUT: Số lượng phải là số nguyên dương lớn hơn 0!
+[2026-11-09 10:16:15] [CHẶN ĐẦU VÀO] ('SP001', 'NHAP', '0') -> INVALID_INPUT: Số lượng phải là số nguyên dương lớn hơn 0!
+[2026-11-09 10:16:27] [CHẶN ĐẦU VÀO] ('SP001', 'NHAP', '15000') -> INVALID_INPUT: Số lượng không được vượt quá 10000!
+[2026-11-09 10:17:19] [GỬI LẦN 1/5] txn_id=SP01-20261109-0001 | trạng thái=CHO_XAC_NHAN
+[2026-11-09 10:17:19] [THÀNH CÔNG] txn_id=SP01-20261109-0001 | trạng thái=DA_XAC_NHAN | stock_after=120 | độ_trễ=14.62ms | số_lần_gửi_lại=0 | phản_hồi={"message":"Giao dịch đã lưu thành công","operator":{"role":"employee","user_id":"NV01"},"status":"OK","stock_after":120,"txn_id":"SP01-20261109-0001"}
+[2026-11-09 10:17:19] [ĐỌC LẠI THÀNH CÔNG] Bản ghi trên máy chủ: {"product_code":"SP001","product_id":"SP001","quantity":20,"scan_point_id":"SP01","stock_after":120,"transaction_id":"SP01-20261109-0001","transaction_time":"2026-11-09T10:17:19.412018","transaction_type":"IMPORT","txn_id":"SP01-20261109-0001","txn_type":"NHAP","user_id":"NV01"}
+[2026-11-09 10:18:04] [GỬI LẦN 1/5] txn_id=SP01-20261109-0001 | trạng thái=CHO_XAC_NHAN
+[2026-11-09 10:18:04] [CHỐNG TRÙNG - ĐÃ LƯU TRƯỚC ĐÓ] txn_id=SP01-20261109-0001 | trạng thái=DA_XAC_NHAN | error_code=DUPLICATE_TXN | độ_trễ=8.45ms | phản_hồi={"error_code":"DUPLICATE_TXN","message":"Mã giao dịch 'SP01-20261109-0001' đã tồn tại"}
+[2026-11-09 10:18:52] Đã chuyển người thực hiện tại SP01 sang 'viewer_demo' (token=token-VIEW01-viewer).
+[2026-11-09 10:19:11] [GỬI LẦN 1/5] txn_id=SP01-20261109-0002 | trạng thái=CHO_XAC_NHAN
+[2026-11-09 10:19:11] [KHÔNG CÓ QUYỀN - 403 FORBIDDEN] txn_id=SP01-20261109-0002 | error_code=FORBIDDEN | thông_báo=Tài khoản 'viewer_demo' thuộc vai trò 'viewer' chỉ có quyền xem, bị cấm ghi giao dịch kho! | độ_trễ=5.18ms | chi_tiết={"error_code":"FORBIDDEN","message":"Tài khoản 'viewer_demo' thuộc vai trò 'viewer' chỉ có quyền xem, bị cấm ghi giao dịch kho!"}
+[2026-11-09 10:19:48] Đã chuyển người thực hiện tại SP01 sang 'nv01' (token=token-NV01-employee).
+[2026-11-09 10:20:06] [GỬI LẦN 1/5] txn_id=SP01-20261109-0003 | trạng thái=CHO_XAC_NHAN
+[2026-11-09 10:20:06] [MÃ HÀNG / ĐIỂM QUÉT KHÔNG TỒN TẠI - 404] txn_id=SP01-20261109-0003 | error_code=PRODUCT_NOT_FOUND | độ_trễ=6.12ms | chi_tiết={"error_code":"PRODUCT_NOT_FOUND","message":"Không tìm thấy sản phẩm 'SP999'"}
+[2026-11-09 10:22:15] [GỬI LẦN 1/5] txn_id=SP01-20261109-0004 | trạng thái=CHO_XAC_NHAN
+[2026-11-09 10:22:17] [LỖI KẾT NỐI MẠNG] txn_id=SP01-20261109-0004 | độ_trễ=2041.35ms | lỗi=Connection refused (Máy chủ ngừng phản hồi)
+[2026-11-09 10:22:17] [HÀNG ĐỢI] Giữ nguyên txn_id=SP01-20261109-0004, chờ 5 giây trước khi gửi lại...
+[2026-11-09 10:22:22] [GỬI LẦN 2/5] txn_id=SP01-20261109-0004 | trạng thái=CHO_XAC_NHAN
+[2026-11-09 10:22:24] [LỖI KẾT NỐI MẠNG] txn_id=SP01-20261109-0004 | độ_trễ=2038.12ms | lỗi=Connection refused (Máy chủ ngừng phản hồi)
+[2026-11-09 10:22:24] [HÀNG ĐỢI] Giữ nguyên txn_id=SP01-20261109-0004, chờ 10 giây trước khi gửi lại...
+[2026-11-09 10:22:34] [GỬI LẦN 3/5] txn_id=SP01-20261109-0004 | trạng thái=CHO_XAC_NHAN
+[2026-11-09 10:22:36] [LỖI KẾT NỐI MẠNG] txn_id=SP01-20261109-0004 | độ_trễ=2045.80ms | lỗi=Connection refused (Máy chủ ngừng phản hồi)
+[2026-11-09 10:22:36] [GIỮ TRONG HÀNG ĐỢI CỤC BỘ] Đã hết số lần thử. Giao dịch SP01-20261109-0004 giữ trạng thái CHO_XAC_NHAN trong E:\CNNT\diem-quet\queue/queue_SP01.jsonl.
+[2026-11-09 10:24:12] [ĐỒNG BỘ HÀNG ĐỢI] Phát hiện 1 giao dịch CHO_XAC_NHAN, bắt đầu gửi lại...
+[2026-11-09 10:24:12] [GỬI LẦN 1/5] txn_id=SP01-20261109-0004 | trạng thái=CHO_XAC_NHAN
+[2026-11-09 10:24:12] [THÀNH CÔNG] txn_id=SP01-20261109-0004 | trạng thái=DA_XAC_NHAN | stock_after=30 | độ_trễ=16.40ms | số_lần_gửi_lại=0 | phản_hồi={"message":"Giao dịch đã lưu thành công","operator":{"role":"employee","user_id":"NV01"},"status":"OK","stock_after":30,"txn_id":"SP01-20261109-0004"}
+[2026-11-09 10:24:12] [ĐỌC LẠI THÀNH CÔNG] Bản ghi trên máy chủ: {"product_code":"SP005","product_id":"SP005","quantity":15,"scan_point_id":"SP01","stock_after":30,"transaction_id":"SP01-20261109-0004","transaction_time":"2026-11-09T10:24:12.615042","transaction_type":"IMPORT","txn_id":"SP01-20261109-0004","txn_type":"NHAP","user_id":"NV01"}

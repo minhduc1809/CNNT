@@ -1,0 +1,19 @@
+[2026-11-14 23:36:40] === KT3a bổ sung: tài khoản chỉ xem ===
+[2026-11-14 23:36:40] API: http://127.0.0.1:5000 | tài khoản API: viewer_demo | tài khoản CSDL: wh_viewer
+[2026-11-14 23:36:40] MỐC TRƯỚC (MySQL): tồn SP002 = 16; số bản ghi warehouse_transactions = 10
+[2026-11-14 23:36:40] --- Tầng dịch vụ (API) ---
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | API-1 đăng nhập viewer_demo | HTTP 200, role=viewer
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | API-2 viewer ĐỌC tồn SP002 | HTTP 200, quantity=16
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | API-3 viewer ĐỌC lịch sử giao dịch | HTTP 200, số dòng=10
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | API-4 viewer THÊM giao dịch bị từ chối | HTTP 403, error_code=FORBIDDEN
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | API-5 viewer XÓA giao dịch: API không có chức năng xóa | HTTP 405
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | API-6 viewer SỬA tồn: API không có chức năng sửa | HTTP 405
+[2026-11-14 23:36:40] THÔNG TIN | API-7 đọc tồn SP002 KHÔNG đăng nhập (không gửi token) | HTTP 200 (đọc được)
+[2026-11-14 23:36:40] --- Tầng CSDL (tài khoản wh_viewer, chỉ có quyền SELECT) ---
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | DB-1 wh_viewer ĐỌC được tồn kho | quantity=16
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | DB-2 wh_viewer THÊM (INSERT) bị từ chối | MySQL lỗi 1142: INSERT command denied to user 'wh_viewer'@'localhost' for table 'products'
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | DB-3 wh_viewer SỬA (UPDATE) bị từ chối | MySQL lỗi 1142: UPDATE command denied to user 'wh_viewer'@'localhost' for table 'inventory'
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | DB-4 wh_viewer XÓA (DELETE) bị từ chối | MySQL lỗi 1142: DELETE command denied to user 'wh_viewer'@'localhost' for table 'warehouse_transactions'
+[2026-11-14 23:36:40] MỐC SAU (MySQL): tồn SP002 = 16; số bản ghi warehouse_transactions = 10
+[2026-11-14 23:36:40] ĐÚNG KỲ VỌNG | DATA dữ liệu không đổi sau khi thử | tồn 16 -> 16; số bản ghi 10 -> 10
+[2026-11-14 23:36:40] === TỔNG KẾT: 11/11 đúng kỳ vọng ===

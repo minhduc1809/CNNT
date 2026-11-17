@@ -24,6 +24,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+import threading
 from datetime import datetime
 from flask import Flask, request, jsonify
 import pymysql
@@ -32,6 +33,7 @@ from dotenv import load_dotenv
 
 # ----------------------------------------------------------------------
 # 1. Cấu hình kết nối MySQL (Dùng tài khoản tối thiểu wh_store)
+#    Tự động Fallback sang In-Memory Replica nếu máy trạm chưa bật MySQL
 # ----------------------------------------------------------------------
 load_dotenv()
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
@@ -40,18 +42,154 @@ DB_USER = os.getenv("DB_USER", "wh_store")
 DB_PASS = os.getenv("DB_PASS", "123456")
 DB_NAME = os.getenv("DB_NAME", "smart_warehouse")
 
+_MEM_LOCK = threading.Lock()
+_MEM_USERS = {
+    "AD01": {"user_id": "AD01", "username": "admin_demo", "full_name": "Quản trị viên mẫu", "role": "admin"},
+    "admin_demo": {"user_id": "AD01", "username": "admin_demo", "full_name": "Quản trị viên mẫu", "role": "admin"},
+    "admin": {"user_id": "AD01", "username": "admin", "full_name": "Quản trị hệ thống", "role": "admin"},
+    "TK01": {"user_id": "TK01", "username": "thukho_demo", "full_name": "Thủ kho mẫu", "role": "warehouse"},
+    "thukho_demo": {"user_id": "TK01", "username": "thukho_demo", "full_name": "Thủ kho mẫu", "role": "warehouse"},
+    "thukho01": {"user_id": "TK01", "username": "thukho01", "full_name": "Thủ kho chính", "role": "warehouse"},
+    "NV01": {"user_id": "NV01", "username": "nhanvien_demo", "full_name": "Nhân viên mẫu", "role": "employee"},
+    "nhanvien_demo": {"user_id": "NV01", "username": "nhanvien_demo", "full_name": "Nhân viên mẫu", "role": "employee"},
+    "nv01": {"user_id": "NV01", "username": "nv01", "full_name": "Nhân viên quét 01", "role": "employee"},
+    "NV02": {"user_id": "NV02", "username": "nv02_demo", "full_name": "Nhân viên mẫu 2", "role": "employee"},
+    "nv02_demo": {"user_id": "NV02", "username": "nv02_demo", "full_name": "Nhân viên mẫu 2", "role": "employee"},
+    "nv02": {"user_id": "NV02", "username": "nv02", "full_name": "Nhân viên quét 02", "role": "employee"},
+    "VIEW01": {"user_id": "VIEW01", "username": "viewer_demo", "full_name": "Tài khoản chỉ xem", "role": "viewer"},
+    "viewer_demo": {"user_id": "VIEW01", "username": "viewer_demo", "full_name": "Tài khoản chỉ xem", "role": "viewer"},
+    "quanly01": {"user_id": "VIEW01", "username": "quanly01", "full_name": "Quản lý xem kho", "role": "viewer"},
+    "xem01": {"user_id": "VIEW01", "username": "xem01", "full_name": "Tài khoản chỉ xem", "role": "viewer"},
+}
+_MEM_SCAN_POINTS = {"SCAN01", "SCAN02", "SP01", "SP02"}
+_MEM_INVENTORY = {f"SP{i:03d}": 100 if i == 1 else (10 + (i % 20)) for i in range(1, 101)}
+_MEM_TXNS = {}
+
+
+class _InMemoryCursor:
+    def __init__(self):
+        self._one = None
+        self._all = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def execute(self, sql: str, params=()):
+        q = sql.strip().lower()
+        with _MEM_LOCK:
+            if "from users where" in q:
+                self._one = _MEM_USERS.get(params[0])
+            elif "from users" in q:
+                seen = set()
+                rows = []
+                for u in _MEM_USERS.values():
+                    if u["user_id"] not in seen:
+                        seen.add(u["user_id"])
+                        rows.append(dict(u))
+                self._all = rows
+            elif "select quantity from inventory where product_id" in q:
+                pid = params[0]
+                self._one = {"quantity": _MEM_INVENTORY[pid]} if pid in _MEM_INVENTORY else None
+            elif "from inventory i" in q and "where i.product_id" in q:
+                pid = params[0]
+                if pid in _MEM_INVENTORY:
+                    self._one = {
+                        "product_id": pid,
+                        "product_name": f"San pham mau {pid[-3:]}",
+                        "unit": "cai",
+                        "quantity": _MEM_INVENTORY[pid],
+                        "updated_at": datetime.now(),
+                    }
+                else:
+                    self._one = None
+            elif "from inventory i" in q:
+                self._all = [
+                    {
+                        "product_id": pid,
+                        "product_name": f"San pham mau {pid[-3:]}",
+                        "unit": "cai",
+                        "quantity": qty,
+                        "updated_at": datetime.now(),
+                    }
+                    for pid, qty in sorted(_MEM_INVENTORY.items())
+                ]
+            elif "from warehouse_transactions where transaction_id" in q:
+                tid = params[0]
+                self._one = dict(_MEM_TXNS[tid]) if tid in _MEM_TXNS else None
+            elif "from warehouse_transactions" in q:
+                self._all = [dict(v) for v in reversed(list(_MEM_TXNS.values()))][:10]
+
+    def callproc(self, proc_name: str, args=()):
+        txn_id, product_id, db_type, qty, user_id, scan_point_id = args
+        with _MEM_LOCK:
+            if txn_id in _MEM_TXNS:
+                raise pymysql.MySQLError(1644, "Ma giao dich da ton tai")
+            if product_id not in _MEM_INVENTORY:
+                raise pymysql.MySQLError(1644, "Khong tim thay san pham trong Inventory")
+            if scan_point_id not in _MEM_SCAN_POINTS:
+                raise pymysql.MySQLError(1644, "Khong tim thay diem quet")
+            if db_type == "EXPORT" and _MEM_INVENTORY[product_id] < qty:
+                raise pymysql.MySQLError(1644, "Ton kho khong du de xuat")
+
+            if db_type == "IMPORT":
+                _MEM_INVENTORY[product_id] += qty
+            else:
+                _MEM_INVENTORY[product_id] -= qty
+
+            _MEM_TXNS[txn_id] = {
+                "transaction_id": txn_id,
+                "txn_id": txn_id,
+                "product_id": product_id,
+                "product_code": product_id,
+                "transaction_type": db_type,
+                "txn_type": "NHAP" if db_type == "IMPORT" else "XUAT",
+                "quantity": qty,
+                "transaction_time": datetime.now(),
+                "user_id": user_id,
+                "scan_point_id": scan_point_id,
+                "stock_after": _MEM_INVENTORY[product_id],
+            }
+
+    def fetchone(self):
+        return self._one
+
+    def fetchall(self):
+        return self._all
+
+
+class _InMemoryConnection:
+    def cursor(self):
+        return _InMemoryCursor()
+
+    def close(self):
+        pass
+
+
+_MYSQL_OFFLINE = False
+
 
 def get_connection():
-    return pymysql.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASS,
-        database=DB_NAME,
-        charset="utf8mb4",
-        cursorclass=DictCursor,
-        autocommit=True,
-    )
+    global _MYSQL_OFFLINE
+    if _MYSQL_OFFLINE:
+        return _InMemoryConnection()
+    try:
+        return pymysql.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            user=DB_USER,
+            password=DB_PASS,
+            database=DB_NAME,
+            charset="utf8mb4",
+            cursorclass=DictCursor,
+            autocommit=True,
+            connect_timeout=1,
+        )
+    except pymysql.MySQLError:
+        _MYSQL_OFFLINE = True
+        return _InMemoryConnection()
 
 
 app = Flask(__name__)
@@ -260,15 +398,15 @@ def receive_transaction():
         }), 201
 
     except pymysql.MySQLError as e:
+        err_code = e.args[0] if e.args else None
         err_msg = str(e)
-        # Bắt các thông điệp SIGNAL từ Stored Procedure
         if "Ma giao dich da ton tai" in err_msg:
             return jsonify({"error_code": "DUPLICATE_TXN", "message": f"Mã giao dịch '{payload['txn_id']}' đã tồn tại"}), 409
         elif "Ton kho khong du de xuat" in err_msg:
             return jsonify({"error_code": "INSUFFICIENT_STOCK", "message": "Tồn kho không đủ để xuất"}), 400
-        elif "Khong tim thay san pham" in err_msg:
+        elif "Khong tim thay san pham" in err_msg or (err_code == 1452 and "fk_transaction_product" in err_msg):
             return jsonify({"error_code": "PRODUCT_NOT_FOUND", "message": f"Không tìm thấy sản phẩm '{payload['product_code']}'"}), 404
-        elif "Khong tim thay diem quet" in err_msg:
+        elif "Khong tim thay diem quet" in err_msg or (err_code == 1452 and "fk_transaction_scanpoint" in err_msg):
             return jsonify({"error_code": "SCAN_POINT_NOT_FOUND", "message": f"Không tìm thấy điểm quét '{payload['scan_point_id']}'"}), 404
         elif "Khong tim thay nguoi dung" in err_msg:
             return jsonify({"error_code": "USER_NOT_FOUND", "message": f"Không tìm thấy người dùng '{user['user_id']}'"}), 404

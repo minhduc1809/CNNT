@@ -1,0 +1,23 @@
+{
+  "kich_ban": "2_diem_quet",
+  "so_tien_trinh": 2,
+  "thoi_gian_s": 60,
+  "khoang_cach_s": 3.0,
+  "tong_yeu_cau": 40,
+  "giao_dich_moi": 37,
+  "moi_thanh_cong_201": 37,
+  "gui_trung": 3,
+  "gui_trung_nhan_409": 3,
+  "loi_khac": {},
+  "thong_luong_gd_moi_s": 0.617,
+  "thong_luong_yeu_cau_s": 0.667,
+  "do_tre_ms": {
+    "tb": 348.7,
+    "p50": 338.51,
+    "p95": 442.82,
+    "p99": 505.27,
+    "max": 511.6
+  },
+  "doc_lai_mau": "20/20",
+  "doi_chieu_all_match": "HTTP 404"
+}
