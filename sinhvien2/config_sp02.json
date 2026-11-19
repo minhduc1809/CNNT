@@ -1,11 +1,16 @@
 {
   "scan_point_id": "SP02",
-  "client_ip": "192.168.20.12",
+  "client_ip": "172.23.155.222",
   "api_base_url": "http://192.168.10.10:8080",
   "default_username": "thukho_demo",
   "seq_file": "queue/seq_SP02.txt",
   "queue_file": "queue/queue_SP02.jsonl",
   "log_file": "logs/log_SP02.log",
   "timeout_seconds": 5,
-  "retry_delays": [5, 10, 20, 60]
+  "retry_delays": [
+    5,
+    10,
+    20,
+    60
+  ]
 }

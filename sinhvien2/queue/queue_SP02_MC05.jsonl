@@ -1,0 +1,2 @@
+{"event":"enqueue","record":{"status":"CHO_XAC_NHAN","created_at":"2026-11-19T20:44:17.837072","seq_no":1,"username":"thukho_demo","retries":0,"payload":{"txn_id":"SP02-20261119-0001","product_code":"SP002","txn_type":"NHAP","quantity":1,"scan_point_id":"SP02","client_time":"2026-11-19T20:44:17"}}}
+{"event":"status","txn_id":"SP02-20261119-0001","status":"DA_XAC_NHAN","updated_at":"2026-11-19T20:44:17.964818","retries_delta":0,"note":"HTTP 201","latency_ms":117.03}
