@@ -19,3 +19,4 @@ __pycache__/
 *.log
 */logs/*.log
 !diem-quet/logs/*.log
+.env.docker

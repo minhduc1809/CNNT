@@ -232,7 +232,7 @@ def get_user_info(user_id_or_username: str):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT user_id, username, full_name, role, password_hash FROM users WHERE user_id = %s OR username = %s",
+                "SELECT user_id, username, full_name, role, password_hash FROM Users WHERE user_id = %s OR username = %s",
                 (user_id_or_username, user_id_or_username),
             )
             return cur.fetchone()
@@ -285,7 +285,7 @@ def login():
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT user_id, username, full_name, role, password_hash FROM users WHERE username = %s",
+                "SELECT user_id, username, full_name, role, password_hash FROM Users WHERE username = %s",
                 (username,),
             )
             user = cur.fetchone()
@@ -382,7 +382,7 @@ def receive_transaction():
             ))
 
             # Lấy tồn kho sau khi giao dịch thành công
-            cur.execute("SELECT quantity FROM inventory WHERE product_id = %s", (payload["product_code"],))
+            cur.execute("SELECT quantity FROM Inventory WHERE product_id = %s", (payload["product_code"],))
             inv = cur.fetchone()
             stock_after = inv["quantity"] if inv else 0
 
@@ -462,8 +462,8 @@ def get_inventory():
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT i.product_id, p.product_name, p.unit, i.quantity, i.updated_at
-                FROM inventory i
-                JOIN products p ON i.product_id = p.product_id
+                FROM Inventory i
+                JOIN Products p ON i.product_id = p.product_id
                 ORDER BY i.product_id
             """)
             rows = cur.fetchall()
@@ -482,8 +482,8 @@ def get_product_inventory(product_id):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT i.product_id, p.product_name, p.unit, i.quantity, i.updated_at
-                FROM inventory i
-                JOIN products p ON i.product_id = p.product_id
+                FROM Inventory i
+                JOIN Products p ON i.product_id = p.product_id
                 WHERE i.product_id = %s
             """, (product_id,))
             row = cur.fetchone()
@@ -507,7 +507,7 @@ def list_users():
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT user_id, username, full_name, role FROM users")
+            cur.execute("SELECT user_id, username, full_name, role FROM Users")
             rows = cur.fetchall()
     finally:
         conn.close()

@@ -1,2 +1,0 @@
-{"event":"enqueue","record":{"payload":{"txn_id":"SP01-20261119-9001","product_code":"SP001","txn_type":"NHAP","quantity":5,"scan_point_id":"SP01","client_time":"2026-11-19T12:12:49","user_id":"NV01"},"status":"CHO_XAC_NHAN"}}
-{"event":"status","txn_id":"SP01-20261119-9001","status":"DA_XAC_NHAN","updated_at":"2026-11-19T12:12:49.289726","retries_delta":0,"note":"HTTP 201","latency_ms":10.04}

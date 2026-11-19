@@ -1,0 +1,5 @@
+CREATE USER IF NOT EXISTS 'wh_admin'@'localhost' IDENTIFIED BY 'AdminUser@2026';
+CREATE USER IF NOT EXISTS 'wh_store'@'localhost' IDENTIFIED BY '123456';
+CREATE USER IF NOT EXISTS 'wh_store'@'%' IDENTIFIED BY '123456';
+CREATE USER IF NOT EXISTS 'wh_employee'@'localhost' IDENTIFIED BY 'EmpUser@2026';
+CREATE USER IF NOT EXISTS 'wh_viewer'@'localhost' IDENTIFIED BY 'ViewerUser@2026';

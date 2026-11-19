@@ -1,0 +1,27 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: cnnt-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env.docker}
+      MYSQL_DATABASE: smart_warehouse
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - cnnt_mysql_data:/var/lib/mysql
+      - ./docker/mysql/init/00_create_mysql_users.sql:/docker-entrypoint-initdb.d/00_create_mysql_users.sql:ro
+      - ./sinh-vien-3/01_CSDL_SQL/01_create_database.sql:/docker-entrypoint-initdb.d/01_create_database.sql:ro
+      - ./sinh-vien-3/01_CSDL_SQL/02_insert_sample_data.sql:/docker-entrypoint-initdb.d/02_insert_sample_data.sql:ro
+      - ./sinh-vien-3/01_CSDL_SQL/03_create_procedure.sql:/docker-entrypoint-initdb.d/03_create_procedure.sql:ro
+      - ./sinh-vien-3/01_CSDL_SQL/04_create_permissions.sql:/docker-entrypoint-initdb.d/04_create_permissions.sql:ro
+      - ./sinh-vien-3/01_CSDL_SQL/06_sync_sv1_sv3_aliases.sql:/docker-entrypoint-initdb.d/06_sync_sv1_sv3_aliases.sql:ro
+      - ./docker/mysql/init/99_grant_wh_store_remote.sql:/docker-entrypoint-initdb.d/99_grant_wh_store_remote.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  cnnt_mysql_data:
