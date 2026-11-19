@@ -2,7 +2,7 @@
 SV4 - KT3a bổ sung: tài khoản CHỈ XEM (viewer_demo) đọc được, nhưng thêm/sửa/xóa bị từ chối.
 
 Kiểm tra 2 tầng:
-  - Tầng dịch vụ (API, cổng 5000): đăng nhập viewer_demo, đọc tồn và lịch sử, thử ghi giao dịch,
+  - Tầng dịch vụ (API, cổng 8080): đăng nhập viewer_demo, đọc tồn và lịch sử, thử ghi giao dịch,
     thử sửa/xóa qua API.
   - Tầng CSDL: nối MySQL bằng tài khoản wh_viewer (chỉ có quyền SELECT), thử INSERT/UPDATE/DELETE.
 
@@ -19,7 +19,7 @@ from datetime import datetime
 import pymysql
 import requests
 
-API = os.getenv("API_URL", "http://127.0.0.1:5000")
+API = os.getenv("API_URL", "http://127.0.0.1:8080")
 VIEWER_USER = "viewer_demo"          # tài khoản chỉ xem trong bảng Users
 DB = dict(
     host=os.getenv("DB_HOST", "127.0.0.1"),

@@ -519,6 +519,6 @@ if __name__ == "__main__":
     print("=" * 65)
     print("  SV3 Server - Smart Warehouse API (Phiên bản Phân Quyền 3 Tầng)")
     print(f"  DB User (Tối thiểu): {DB_USER}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
-    print("  Listening at http://0.0.0.0:5000")
+    print("  Listening at http://0.0.0.0:8080")
     print("=" * 65)
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=8080, debug=False)

@@ -117,7 +117,7 @@ Mở cửa sổ dòng lệnh thứ nhất:
 cd CNNT-main/sinh-vien-3/04_DICH_VU_API
 python app.py
 ```
-> Server sẽ khởi chạy tại: `http://localhost:5000` (kết nối CSDL bằng user đặc quyền tối thiểu `wh_store`).
+> Server sẽ khởi chạy tại: `http://localhost:8080` (kết nối CSDL bằng user đặc quyền tối thiểu `wh_store`).
 
 ---
 

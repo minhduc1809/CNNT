@@ -4,19 +4,18 @@ Mục tiêu: Chứng minh tính nhất quán dữ liệu, cơ chế transaction 
 Bàn giao cho SV4 để phối hợp nghiệm thu.
 
 Cách chạy:
-    python thu_dong_thoi_xuat.py [--base-url http://127.0.0.1:5000] [--code SP001] [--qty 70]
+    python thu_dong_thoi_xuat.py [--base-url http://192.168.10.10:8080] [--code SP001] [--qty 70]
 """
 
 import argparse
 import concurrent.futures
 from datetime import datetime
+import getpass
 import json
 import os
 import sys
-import threading
 import time
 import requests
-from werkzeug.serving import make_server
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(BASE_DIR)
@@ -25,29 +24,19 @@ if API_DIR not in sys.path:
     sys.path.insert(0, API_DIR)
 
 
-class _BackgroundServer(threading.Thread):
-    def __init__(self, host="127.0.0.1", port=5000):
-        super().__init__(daemon=True)
-        from app import app as sv3_app
-        self.server = make_server(host, port, sv3_app)
-        self.ctx = sv3_app.app_context()
-        self.ctx.push()
-
-    def run(self):
-        self.server.serve_forever()
-
-    def shutdown(self):
-        self.server.shutdown()
-
-
-def login(base_url: str, username: str = "thukho_demo", password: str = "Kho@2026") -> str:
+def login(base_url: str, username: str, password: str) -> str:
     try:
         r = requests.post(f"{base_url}/api/login", json={"username": username, "password": password}, timeout=5)
-        if r.status_code == 200:
-            return r.json().get("token") or username
-    except Exception as e:
-        print(f"[CẢNH BÁO] Không gọi được /api/login: {e}")
-    return f"token-{username}"
+        if r.status_code != 200:
+            raise RuntimeError(f"Đăng nhập thất bại: HTTP {r.status_code}: {r.text.strip()}")
+        token = r.json().get("token")
+        if not isinstance(token, str) or not token.strip():
+            raise RuntimeError("API đăng nhập không trả Bearer token hợp lệ")
+        return token.strip()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Không kết nối được API: {e}") from e
+    except ValueError as e:
+        raise RuntimeError("API đăng nhập trả JSON không hợp lệ") from e
 
 
 def get_stock(base_url: str, product_code: str, token: str):
@@ -104,26 +93,22 @@ def send_scan_request(base_url: str, scan_point_id: str, product_code: str, quan
 
 def main():
     parser = argparse.ArgumentParser(description="Script thử nghiệm xuất đồng thời 2 điểm quét (SV2 nâng cao)")
-    parser.add_argument("--base-url", default="http://127.0.0.1:5000", help="Địa chỉ API máy chủ")
+    parser.add_argument("--base-url", default="http://192.168.10.10:8080", help="Địa chỉ API máy chủ")
     parser.add_argument("--code", default="SP001", help="Mã hàng cần thử xuất")
     parser.add_argument("--qty", type=int, default=70, help="Số lượng mỗi điểm quét xuất (đặt > 50% tồn kho)")
+    parser.add_argument("--username", default="thukho_demo", help="Tài khoản có quyền xuất kho")
     args = parser.parse_args()
 
-    bg_server = None
     try:
-        requests.get(f"{args.base_url}/api/inventory/{args.code}", timeout=1)
-    except Exception:
-        bg_server = _BackgroundServer("127.0.0.1", 5000)
-        bg_server.start()
-        time.sleep(0.5)
+        token = login(args.base_url, args.username, getpass.getpass(f"Mật khẩu của {args.username}: "))
+    except RuntimeError as exc:
+        parser.error(str(exc))
 
     lines = []
 
     def out(msg: str = ""):
         print(msg)
         lines.append(msg)
-
-    token = login(args.base_url)
 
     out("=" * 70)
     out(" KỊCH BẢN THỬ NGHIỆM ĐỒNG THỜI XUẤT KHO TỪ SP01 & SP02 (SV2 NÂNG CAO)")
@@ -158,22 +143,23 @@ def main():
     rejected_count = sum(1 for r in (res1, res2) if r["status_code"] in (400, 422))
 
     out("\n--- KẾT LUẬN KIỂM CHỨNG ---")
-    if final_stock is not None and final_stock >= 0:
-        out(f"[ĐẠT] Tồn kho không bị âm ({final_stock} >= 0).")
-        if (args.qty * 2) > (initial_stock or 0):
-            out(f"      Số giao dịch thành công: {success_count}, Số giao dịch bị chặn do thiếu tồn: {rejected_count}.")
-            out("      Cơ chế transaction và khóa cách ly CSDL đã hoạt động chính xác!")
+    if initial_stock is not None and final_stock is not None and (args.qty * 2) > initial_stock:
+        expected_final = initial_stock - args.qty
+        if success_count == 1 and rejected_count == 1 and final_stock == expected_final:
+            out(f"[ĐẠT] Một giao dịch được nhận, một giao dịch bị từ chối; tồn cuối {final_stock} khớp dự kiến {expected_final}.")
+        else:
+            out(f"[CHƯA ĐẠT] Kết quả chưa khớp: thành công={success_count}, từ chối={rejected_count}, tồn cuối={final_stock}, dự kiến={expected_final}.")
+    elif initial_stock is None or final_stock is None:
+        out("[CHƯA ĐỦ BẰNG CHỨNG] Không đọc được tồn kho trước hoặc sau giao dịch.")
     else:
-        out("[THẤT BẠI] Tồn kho bị âm hoặc không xác định được trạng thái!")
+        out("[CHƯA ĐỦ BẰNG CHỨNG] Số lượng thử không vượt quá tồn ban đầu hai lần; ca này chưa kiểm tra được tranh chấp thiếu tồn.")
 
     logs_dir = os.path.join(BASE_DIR, "logs")
     os.makedirs(logs_dir, exist_ok=True)
-    report_file = os.path.join(logs_dir, "ketqua_thu_dong_thoi.txt")
+    report_file = os.path.join(logs_dir, f"ketqua_thu_dong_thoi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
     with open(report_file, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
-    if bg_server is not None:
-        bg_server.shutdown()
 
 
 if __name__ == "__main__":

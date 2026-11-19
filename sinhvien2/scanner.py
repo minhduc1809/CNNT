@@ -3,6 +3,8 @@ import os
 import socket
 import sys
 import time
+import getpass
+from urllib.parse import urlsplit
 from datetime import datetime
 import requests
 from requests.adapters import HTTPAdapter
@@ -23,16 +25,28 @@ class SourceIPAdapter(HTTPAdapter):
 def get_http_session(client_ip: str = "") -> requests.Session:
     session = requests.Session()
     if client_ip:
+        test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             test_sock.bind((client_ip, 0))
+        except OSError as exc:
+            raise RuntimeError(
+                f"Không thể gắn IP nguồn {client_ip}. Hãy cấu hình IP này trên máy điểm quét "
+                "hoặc dùng API_BASE_URL/--url loopback cho chạy thử cùng máy."
+            ) from exc
+        finally:
             test_sock.close()
-            adapter = SourceIPAdapter(client_ip)
-            session.mount("http://", adapter)
-            session.mount("https://", adapter)
-        except OSError:
-            pass
+        adapter = SourceIPAdapter(client_ip)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
     return session
+
+
+def get_api_session(base_url: str, client_ip: str = "") -> requests.Session:
+    """Bind the configured source IP for remote calls; loopback is local development only."""
+    parsed_url = urlsplit(base_url)
+    loopback_hosts = {"127.0.0.1", "localhost", "::1"}
+    source_ip = "" if parsed_url.hostname in loopback_hosts else client_ip
+    return get_http_session(source_ip)
 
 
 def resolve_path(config_path: str, file_path: str) -> str:
@@ -75,22 +89,46 @@ def read_current_seq_no(seq_file: str) -> int:
                 content = f.read().strip()
                 if content:
                     return int(content)
-        except ValueError:
-            return 0
+                raise ValueError(f"Tệp seq_no rỗng: {seq_file}")
+        except ValueError as exc:
+            raise ValueError(f"Tệp seq_no không hợp lệ: {seq_file}") from exc
     return 0
 
 
 def get_next_seq_no(seq_file: str) -> int:
-    """Đọc và tăng số thứ tự seq_no lưu xuống đĩa an toàn (fsync chống tắt đột ngột)."""
+    """Đọc và tăng seq_no bằng thao tác thay tệp nguyên tử, sau đó fsync xuống đĩa."""
     seq = read_current_seq_no(seq_file) + 1
     parent = os.path.dirname(seq_file)
     if parent:
         os.makedirs(parent, exist_ok=True)
-    with open(seq_file, "w", encoding="utf-8") as f:
-        f.write(str(seq))
-        f.flush()
-        os.fsync(f.fileno())
+    temp_path = f"{seq_file}.tmp-{os.getpid()}"
+    try:
+        with open(temp_path, "w", encoding="utf-8", newline="") as f:
+            f.write(str(seq))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, seq_file)
+        _fsync_directory(parent or ".")
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
     return seq
+
+
+def _fsync_directory(directory: str):
+    """Lưu metadata thư mục trên hệ thống hỗ trợ mở và fsync thư mục."""
+    if os.name == "nt":
+        return
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    try:
+        fd = os.open(directory, flags)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except OSError:
+        # Một số hệ thống tệp không cho fsync thư mục; dữ liệu tệp vẫn đã fsync.
+        pass
 
 
 def generate_txn_id(scan_point_id: str, seq_no: int) -> str:
@@ -126,34 +164,105 @@ def validate_input(product_code: str, txn_type: str, quantity_str: str):
 def load_queue(queue_file: str) -> list:
     if not os.path.exists(queue_file):
         return []
-    items = []
+    items_by_id = {}
+    ordered_ids = []
     with open(queue_file, "r", encoding="utf-8") as f:
-        for line in f:
+        for line_no, line in enumerate(f, start=1):
             line = line.strip()
             if line:
                 try:
-                    items.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-    return items
+                    event = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        f"Hàng đợi bị lỗi JSON tại dòng {line_no}: {queue_file}. "
+                        "Không tiếp tục để tránh âm thầm bỏ giao dịch."
+                    ) from exc
+
+                # Tương thích các hàng đợi cũ lưu một bản ghi hoàn chỉnh trên mỗi dòng.
+                if event.get("event") == "enqueue":
+                    record = event["record"]
+                    txn_id = record["payload"]["txn_id"]
+                    items_by_id[txn_id] = record
+                    if txn_id not in ordered_ids:
+                        ordered_ids.append(txn_id)
+                elif event.get("event") == "status":
+                    txn_id = event["txn_id"]
+                    if txn_id in items_by_id:
+                        record = items_by_id[txn_id]
+                        record["status"] = event["status"]
+                        record["updated_at"] = event["updated_at"]
+                        if event.get("note"):
+                            record["note"] = event["note"]
+                        if event.get("latency_ms", 0) > 0:
+                            record["latency_ms"] = event["latency_ms"]
+                        record["retries"] = record.get("retries", 0) + event.get("retries_delta", 0)
+                else:
+                    txn_id = event.get("payload", {}).get("txn_id")
+                    if not txn_id:
+                        raise ValueError(f"Bản ghi hàng đợi thiếu txn_id tại dòng {line_no}: {queue_file}")
+                    items_by_id[txn_id] = event
+                    if txn_id not in ordered_ids:
+                        ordered_ids.append(txn_id)
+    return [items_by_id[txn_id] for txn_id in ordered_ids]
 
 
-def save_queue(queue_file: str, items: list):
+def _append_queue_event(queue_file: str, event: dict):
+    """Nối một sự kiện JSONL và fsync; không viết lại các giao dịch cũ."""
     parent = os.path.dirname(queue_file)
     if parent:
         os.makedirs(parent, exist_ok=True)
-    with open(queue_file, "w", encoding="utf-8") as f:
-        for item in items:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
-        f.flush()
-        os.fsync(f.fileno())
+    payload = (json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+    fd = os.open(queue_file, os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
+    try:
+        view = memoryview(payload)
+        while view:
+            written = os.write(fd, view)
+            if written <= 0:
+                raise OSError(f"Không ghi thêm được dữ liệu vào hàng đợi {queue_file}")
+            view = view[written:]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    _fsync_directory(parent or ".")
+
+
+def save_queue(queue_file: str, items: list):
+    """Tương thích API cũ bằng cách ghi sự kiện, không thay thế nhật ký."""
+    current_items = load_queue(queue_file)
+    current = {item.get("payload", {}).get("txn_id"): item for item in current_items}
+    for item in items:
+        txn_id = item.get("payload", {}).get("txn_id")
+        if not txn_id:
+            raise ValueError("Không thể lưu bản ghi hàng đợi không có txn_id")
+        if txn_id not in current:
+            _append_queue_event(queue_file, {"event": "enqueue", "record": item})
+            current[txn_id] = item
+            continue
+
+        old = current[txn_id]
+        if any(old.get(key) != item.get(key) for key in ("status", "note", "latency_ms", "retries")):
+            event = {
+                "event": "status",
+                "txn_id": txn_id,
+                "status": item.get("status", old.get("status", "CHO_XAC_NHAN")),
+                "updated_at": item.get("updated_at", datetime.now().isoformat()),
+                "retries_delta": max(0, item.get("retries", 0) - old.get("retries", 0)),
+            }
+            if item.get("note"):
+                event["note"] = item["note"]
+            if item.get("latency_ms", 0) > 0:
+                event["latency_ms"] = item["latency_ms"]
+            _append_queue_event(queue_file, event)
 
 
 def enqueue_transaction(queue_file: str, record: dict):
     """Ghi giao dịch vào file hàng đợi cục bộ trước khi gửi qua mạng (CV03)."""
-    items = load_queue(queue_file)
-    items.append(record)
-    save_queue(queue_file, items)
+    txn_id = record.get("payload", {}).get("txn_id")
+    if not txn_id:
+        raise ValueError("Không thể lưu giao dịch không có txn_id")
+    if any(item.get("payload", {}).get("txn_id") == txn_id for item in load_queue(queue_file)):
+        raise ValueError(f"txn_id đã có trong hàng đợi cục bộ: {txn_id}")
+    _append_queue_event(queue_file, {"event": "enqueue", "record": record})
 
 
 def update_queue_status(
@@ -164,44 +273,51 @@ def update_queue_status(
     latency_ms: float = 0.0,
     retries: int = 0,
 ):
-    items = load_queue(queue_file)
-    for item in items:
-        p = item.get("payload", {})
-        if p.get("txn_id") == txn_id:
-            item["status"] = new_status
-            item["updated_at"] = datetime.now().isoformat()
-            if note:
-                item["note"] = note
-            if latency_ms > 0:
-                item["latency_ms"] = latency_ms
-            item["retries"] = item.get("retries", 0) + retries
-    save_queue(queue_file, items)
+    event = {
+        "event": "status",
+        "txn_id": txn_id,
+        "status": new_status,
+        "updated_at": datetime.now().isoformat(),
+        "retries_delta": retries,
+    }
+    if note:
+        event["note"] = note
+    if latency_ms > 0:
+        event["latency_ms"] = latency_ms
+    _append_queue_event(queue_file, event)
 
 
-def login_api(base_url: str, username: str, password: str, timeout: int) -> str:
-    """Đăng nhập lấy Bearer Token theo giao ước SV1."""
+def login_api(base_url: str, username: str, password: str, timeout: int, client_ip: str = "") -> str:
+    """Đăng nhập lấy Bearer Token; lỗi xác thực/kết nối luôn dừng luồng gửi."""
     try:
-        resp = requests.post(
-            f"{base_url}/api/login",
-            json={"username": username, "password": password},
-            timeout=timeout,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get("token") or username
-    except Exception:
-        pass
-    return f"token-{username}"
+        with get_api_session(base_url, client_ip) as session:
+            resp = session.post(
+                f"{base_url}/api/login",
+                json={"username": username, "password": password},
+                timeout=timeout,
+            )
+        if resp.status_code != 200:
+            raise RuntimeError(f"Đăng nhập thất bại: HTTP {resp.status_code}: {resp.text.strip()}")
+        data = resp.json()
+        token = data.get("token")
+        if not isinstance(token, str) or not token.strip():
+            raise RuntimeError("API đăng nhập trả HTTP 200 nhưng không có Bearer token hợp lệ")
+        return token.strip()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"Không kết nối được API đăng nhập tại {base_url}/api/login: {exc}") from exc
+    except ValueError as exc:
+        raise RuntimeError("API đăng nhập trả về JSON không hợp lệ") from exc
 
 
-def verify_saved_on_server(base_url: str, txn_id: str, headers: dict, timeout: int, log_file: str) -> bool:
+def verify_saved_on_server(base_url: str, txn_id: str, headers: dict, timeout: int, log_file: str, client_ip: str = "") -> bool:
     """Đọc lại giao dịch từ máy chủ theo txn_id để chứng minh đã lưu vào CSDL (CV02)."""
     try:
-        resp = requests.get(
-            f"{base_url}/api/transactions/{txn_id}",
-            headers=headers,
-            timeout=timeout,
-        )
+        with get_api_session(base_url, client_ip) as session:
+            resp = session.get(
+                f"{base_url}/api/transactions/{txn_id}",
+                headers=headers,
+                timeout=timeout,
+            )
         if resp.status_code == 200:
             write_log(log_file, f"[ĐỌC LẠI THÀNH CÔNG] Bản ghi trên máy chủ: {resp.text.strip()}")
             return True
@@ -220,12 +336,14 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
     log_file = config["log_file"]
     queue_file = config["queue_file"]
     txn_id = payload["txn_id"]
+    if not token or not token.strip():
+        raise ValueError("Thiếu Bearer token; giao dịch chưa được gửi")
 
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {token}",
     }
-    session = get_http_session(config.get("client_ip", ""))
+    session = get_api_session(base_url, config.get("client_ip", ""))
 
     max_attempts = len(delays) + 1
     for attempt in range(1, max_attempts + 1):
@@ -257,7 +375,8 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
                     log_file,
                     f"[THÀNH CÔNG] txn_id={txn_id} | trạng thái=DA_XAC_NHAN | stock_after={stock_after} | độ_trễ={latency_ms}ms | số_lần_gửi_lại={attempt - 1} | phản_hồi={resp_text}",
                 )
-                verify_saved_on_server(base_url, txn_id, headers, timeout, log_file)
+                verify_saved_on_server(base_url, txn_id, headers, timeout, log_file, config.get("client_ip", ""))
+                session.close()
                 return True
 
             # 2. Giao dịch trùng (409 DUPLICATE_TXN)
@@ -269,6 +388,7 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
                     log_file,
                     f"[CHỐNG TRÙNG - ĐÃ LƯU TRƯỚC ĐÓ] txn_id={txn_id} | trạng thái=DA_XAC_NHAN | error_code={error_code or 'DUPLICATE_TXN'} | độ_trễ={latency_ms}ms | phản_hồi={resp_text}",
                 )
+                session.close()
                 return True
 
             # 3. Các lỗi nghiệp vụ rõ ràng theo yêu cầu CV02 (không gửi lại)
@@ -278,6 +398,7 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
                     log_file,
                     f"[KHÔNG CÓ QUYỀN - 403 FORBIDDEN] txn_id={txn_id} | error_code={error_code or 'FORBIDDEN'} | thông_báo={msg_server} | độ_trễ={latency_ms}ms | chi_tiết={resp_text}",
                 )
+                session.close()
                 return False
 
             if resp.status_code == 404 or error_code == "PRODUCT_NOT_FOUND" or "PRODUCT_NOT_FOUND" in resp_text:
@@ -286,6 +407,7 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
                     log_file,
                     f"[MÃ HÀNG / ĐIỂM QUÉT KHÔNG TỒN TẠI - 404] txn_id={txn_id} | error_code={error_code or 'NOT_FOUND'} | độ_trễ={latency_ms}ms | chi_tiết={resp_text}",
                 )
+                session.close()
                 return False
 
             if error_code == "INSUFFICIENT_STOCK" or "INSUFFICIENT_STOCK" in resp_text or resp.status_code == 422:
@@ -294,6 +416,7 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
                     log_file,
                     f"[KHÔNG ĐỦ HÀNG TRONG KHO - INSUFFICIENT_STOCK] txn_id={txn_id} | error_code={error_code or 'INSUFFICIENT_STOCK'} | độ_trễ={latency_ms}ms | chi_tiết={resp_text}",
                 )
+                session.close()
                 return False
 
             if resp.status_code in (400, 401):
@@ -302,6 +425,7 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
                     log_file,
                     f"[BỊ TỪ CHỐI NGHIỆP VỤ] txn_id={txn_id} | HTTP={resp.status_code} | độ_trễ={latency_ms}ms | chi_tiết={resp_text}",
                 )
+                session.close()
                 return False
 
             write_log(log_file, f"[LỖI MÁY CHỦ {resp.status_code}] độ_trễ={latency_ms}ms | nội_dung={resp_text}")
@@ -321,6 +445,7 @@ def send_with_retry(config: dict, payload: dict, token: str) -> bool:
         log_file,
         f"[GIỮ TRONG HÀNG ĐỢI CỤC BỘ] Đã hết số lần thử. Giao dịch {txn_id} giữ trạng thái CHO_XAC_NHAN trong {queue_file}.",
     )
+    session.close()
     return False
 
 
@@ -350,7 +475,8 @@ def check_server_and_inventory(config: dict, token: str):
     p_code = input("Nhập mã hàng cần kiểm tra tồn kho (mặc định SP001): ").strip().upper() or "SP001"
     start = time.time()
     try:
-        resp = requests.get(f"{base_url}/api/inventory/{p_code}", headers=headers, timeout=timeout)
+        with get_api_session(base_url, config.get("client_ip", "")) as session:
+            resp = session.get(f"{base_url}/api/inventory/{p_code}", headers=headers, timeout=timeout)
         latency_ms = round((time.time() - start) * 1000, 2)
         if resp.status_code == 200:
             data = resp.json()
@@ -407,7 +533,8 @@ def show_metrics_and_reconcile_seq(config: dict, token: str):
         for item in confirmed:
             tid = item["payload"]["txn_id"]
             try:
-                r = requests.get(f"{base_url}/api/transactions/{tid}", headers=headers, timeout=timeout)
+                with get_api_session(base_url, config.get("client_ip", "")) as session:
+                    r = session.get(f"{base_url}/api/transactions/{tid}", headers=headers, timeout=timeout)
                 if r.status_code == 200:
                     matched += 1
                 else:
@@ -432,8 +559,8 @@ def build_payload(txn_id: str, product_code: str, txn_type: str, quantity: int, 
 
 def main():
     if len(sys.argv) < 2:
-        print("Cách chạy: python scanner.py <đường_dẫn_file_config.json> [--url http://IP_MAY_CHU:5000]")
-        print("Ví dụ:     python scanner.py config_sp01.json --url http://172.23.155.222:5000")
+        print("Cách chạy: python scanner.py <đường_dẫn_file_config.json> [--url http://IP_MAY_CHU:8080]")
+        print("Ví dụ:     python scanner.py config_sp01.json --url http://172.23.155.222:8080")
         sys.exit(1)
 
     config = load_config(sys.argv[1])
@@ -452,8 +579,12 @@ def main():
 
     default_user = config.get("default_username", "nv01")
     username = input(f"Đăng nhập - Tài khoản (mặc định {default_user}): ").strip() or default_user
-    password = input("Đăng nhập - Mật khẩu (mặc định Kho@2026): ").strip() or "Kho@2026"
-    token = login_api(config["api_base_url"], username, password, config.get("timeout_seconds", 5))
+    password = getpass.getpass("Đăng nhập - Mật khẩu: ")
+    try:
+        token = login_api(config["api_base_url"], username, password, config.get("timeout_seconds", 5), config.get("client_ip", ""))
+    except RuntimeError as exc:
+        print(f"[LỖI] {exc}. Không gửi giao dịch.")
+        sys.exit(2)
     write_log(log_file, f"Khởi động {scan_point_id} với người dùng '{username}'.")
 
     # Tự động kiểm tra hàng đợi tồn đọng từ lần tắt đột ngột trước
@@ -494,9 +625,14 @@ def main():
         elif choice == "6":
             new_user = input("Nhập tài khoản mới (VD: viewer_demo, nhanvien_demo, thukho_demo): ").strip()
             if new_user:
-                username = new_user
-                token = login_api(config["api_base_url"], username, password, config.get("timeout_seconds", 5))
-                write_log(log_file, f"Đã chuyển người thực hiện tại {scan_point_id} sang '{username}' (token={token}).")
+                new_password = getpass.getpass(f"Mật khẩu của {new_user}: ")
+                try:
+                    new_token = login_api(config["api_base_url"], new_user, new_password, config.get("timeout_seconds", 5), config.get("client_ip", ""))
+                except RuntimeError as exc:
+                    write_log(log_file, f"[ĐỔI TÀI KHOẢN THẤT BẠI] {exc}")
+                else:
+                    username, password, token = new_user, new_password, new_token
+                    write_log(log_file, f"Đã xác thực người dùng '{username}' tại {scan_point_id}.")
         elif choice == "1":
             p_code = input("Nhập mã hàng (product_code, VD: SP001): ")
             t_type = input("Nhập loại giao dịch (NHAP / XUAT): ")
@@ -520,6 +656,7 @@ def main():
             record = {
                 "status": "CHO_XAC_NHAN",
                 "created_at": datetime.now().isoformat(),
+                "seq_no": seq_no,
                 "username": username,
                 "retries": 0,
                 "payload": payload,

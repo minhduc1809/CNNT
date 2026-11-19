@@ -1,0 +1,2 @@
+{"event":"enqueue","record":{"payload":{"txn_id":"SP02-20261119-9001","product_code":"SP001","txn_type":"XUAT","quantity":3,"scan_point_id":"SP02","client_time":"2026-11-19T12:12:49","user_id":"TK01"},"status":"CHO_XAC_NHAN"}}
+{"event":"status","txn_id":"SP02-20261119-9001","status":"DA_XAC_NHAN","updated_at":"2026-11-19T12:12:49.291309","retries_delta":0,"note":"HTTP 201","latency_ms":10.44}

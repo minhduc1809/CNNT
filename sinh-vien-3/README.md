@@ -4,7 +4,7 @@
 * **Sinh viên phụ trách:** Phạm Công Mạnh
 * **Mã sinh viên:** B24DCCC193
 * **Vai trò:** SV3 – Máy chủ, Cơ sở dữ liệu, Phân quyền 3 tầng, Sao lưu & Khôi phục dữ liệu
-* **Môi trường triển khai:** Windows Server / Windows 10 (hỗ trợ Linux systemd), MySQL Server 9.3 (cổng 3306), Python 3.11 (Flask API cổng 5000)
+* **Môi trường triển khai:** Windows Server / Windows 10 (hỗ trợ Linux systemd), MySQL Server 9.3 (cổng 3306), Python 3.11 (Flask API cổng 8080)
 
 ---
 
@@ -131,7 +131,7 @@ sinh-vien-3/
 +-----------------------------------------------------------------------+
 ```
 
-#### Danh sách Endpoint RESTful API (Cổng 5000):
+#### Danh sách Endpoint RESTful API (Cổng 8080):
 | Phương thức | Endpoint | Mô tả | Quyền truy cập |
 |---|---|---|---|
 | `POST` | `/api/login` | Xác thực đăng nhập qua mật khẩu băm SHA-256, cấp Bearer Token | Public |
@@ -213,7 +213,7 @@ Get-Content 06_sync_sv1_sv3_aliases.sql -Raw | & "C:\Program Files\MySQL\MySQL S
 cd "D:\Dowloads\CNNT-main\sinh-vien-3\04_DICH_VU_API"
 python app.py
 ```
-*Server sẽ khởi động và lắng nghe tại `http://0.0.0.0:5000`.*
+*Server sẽ khởi động và lắng nghe tại `http://0.0.0.0:8080`.*
 
 ### Bước 3: Chạy bộ kiểm thử tự động 26 ca kiểm thử
 Mở một cửa sổ PowerShell mới:

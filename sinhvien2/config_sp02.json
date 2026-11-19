@@ -1,8 +1,8 @@
 {
   "scan_point_id": "SP02",
   "client_ip": "192.168.20.12",
-  "api_base_url": "http://127.0.0.1:5000",
-  "default_username": "nv02",
+  "api_base_url": "http://192.168.10.10:8080",
+  "default_username": "thukho_demo",
   "seq_file": "queue/seq_SP02.txt",
   "queue_file": "queue/queue_SP02.jsonl",
   "log_file": "logs/log_SP02.log",

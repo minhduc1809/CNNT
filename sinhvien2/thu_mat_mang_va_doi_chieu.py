@@ -4,28 +4,22 @@ Kịch bản tự động kiểm thử:
   1. Gửi giao dịch hợp lệ từ 2 điểm quét SP01 & SP02 và đọc lại từ máy chủ (CV01, CV02).
   2. Kiểm thử các ca từ chối nghiệp vụ: Không có quyền (403), Mã hàng sai (404), Xuất vượt tồn, Trùng txn_id (409).
   3. Thử nghiệm mất mạng, lưu hàng đợi cục bộ (CHO_XAC_NHAN), gửi lại có kiểm soát với khoảng chờ tăng dần (CV03).
-  4. Thử nghiệm tắt đột ngột giữa lúc ghi (bảo toàn seq_no và hàng đợi trên đĩa) và đồng bộ lại khi có mạng (CV03).
+  4. Mô phỏng API không kết nối được, lưu giao dịch chờ; không kill tiến trình thật (CV03).
   5. Đo đạc độ trễ, tỉ lệ thành công, số lần gửi lại và đối chiếu seq_no với máy chủ (bàn giao SV4).
 
 Cách chạy:
-  python thu_mat_mang_va_doi_chieu.py
+  PowerShell: $env:API_BASE_URL='http://IP_MAY_CHU:8080'; python sinhvien2\thu_mat_mang_va_doi_chieu.py
 """
 
 import json
+import getpass
 import os
 import sys
-import threading
-import time
 from datetime import datetime
-from werkzeug.serving import make_server
 import requests
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.dirname(BASE_DIR)
-API_DIR = os.path.join(REPO_ROOT, "sinh-vien-3", "04_DICH_VU_API")
-
 sys.path.insert(0, BASE_DIR)
-sys.path.insert(0, API_DIR)
 
 from scanner import (
     build_payload,
@@ -41,26 +35,20 @@ from scanner import (
     validate_input,
     write_log,
 )
-from app import app as sv3_flask_app
-
-
-class ControllableAPIServer(threading.Thread):
-    def __init__(self, host="127.0.0.1", port=5000):
-        super().__init__(daemon=True)
-        self.server = make_server(host, port, sv3_flask_app)
-        self.ctx = sv3_flask_app.app_context()
-        self.ctx.push()
-
-    def run(self):
-        self.server.serve_forever()
-
-    def shutdown(self):
-        self.server.shutdown()
-
-
 def run_cv02_cv03_suite():
     cfg_sp01 = load_config(os.path.join(BASE_DIR, "config_sp01.json"))
     cfg_sp02 = load_config(os.path.join(BASE_DIR, "config_sp02.json"))
+
+    base_url = os.getenv("API_BASE_URL", cfg_sp01["api_base_url"]).rstrip("/")
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    run_dir = os.path.join(BASE_DIR, "logs", "runs", run_id)
+    os.makedirs(run_dir, exist_ok=True)
+    for cfg in (cfg_sp01, cfg_sp02):
+        point = cfg["scan_point_id"]
+        cfg["api_base_url"] = base_url
+        cfg["seq_file"] = os.path.join(run_dir, f"seq_{point}.txt")
+        cfg["queue_file"] = os.path.join(run_dir, f"queue_{point}.jsonl")
+        cfg["log_file"] = os.path.join(run_dir, f"log_{point}.log")
 
     # Đặt khoảng chờ retry ngắn (1s, 2s) khi chạy kịch bản tự động nhưng vẫn chứng minh cơ chế tăng dần
     cfg_sp01["retry_delays"] = [1, 2]
@@ -68,24 +56,16 @@ def run_cv02_cv03_suite():
     cfg_sp02["retry_delays"] = [1, 2]
     cfg_sp02["timeout_seconds"] = 3
 
-    # Làm sạch file thực nghiệm trước khi chạy mới
-    for cfg in (cfg_sp01, cfg_sp02):
-        for k in ("seq_file", "log_file", "queue_file"):
-            if os.path.exists(cfg[k]):
-                os.remove(cfg[k])
-
-    # Khởi động máy chủ API SV3 trên cổng 5000 (nếu chưa chạy)
-    api_server = None
+    # Không tự khởi chạy API: kịch bản dùng dịch vụ do nhóm cấu hình và nghiệm thu.
     try:
-        requests.get("http://127.0.0.1:5000/api/inventory/SP001", timeout=1)
-        print("[*] Phát hiện máy chủ API SV3 đang chạy sẵn tại cổng 5000.")
-    except Exception:
-        print("[*] Đang khởi chạy máy chủ API SV3 (app.py) tại http://127.0.0.1:5000...")
-        api_server = ControllableAPIServer("127.0.0.1", 5000)
-        api_server.start()
-        time.sleep(0.5)
-
-    base_url = cfg_sp01["api_base_url"]
+        requests.get(f"{base_url}/api/inventory/SP001", timeout=2)
+    except requests.RequestException as exc:
+        raise RuntimeError(
+            f"Không kết nối được API tại {base_url}. Hãy bật API SV3 và xác nhận MySQL "
+            "đang hoạt động trước khi chạy kịch bản."
+        ) from exc
+    print(f"[*] API đích: {base_url}")
+    print(f"[*] Dữ liệu thử được cô lập tại: {run_dir}")
 
     print("\n" + "=" * 75)
     print(" BƯỚC 1: KIỂM TRA ĐẦU VÀO TẠI MÁY KHÁCH ĐIỂM QUÉT (CV02)")
@@ -104,9 +84,12 @@ def run_cv02_cv03_suite():
     print("\n" + "=" * 75)
     print(" BƯỚC 2: GỬI GIAO DỊCH HỢP LỆ TỪ SP01 & SP02 + ĐỌC LẠI TỪ MÁY CHỦ (CV01, CV02)")
     print("=" * 75)
-    token_nv01 = login_api(base_url, "nv01", "Kho@2026", 3)
-    token_thukho = login_api(base_url, "thukho_demo", "Kho@2026", 3)
-    token_viewer = login_api(base_url, "viewer_demo", "Kho@2026", 3)
+    password_nv01 = getpass.getpass("Mật khẩu của nv01: ")
+    password_thukho = getpass.getpass("Mật khẩu của thukho_demo: ")
+    password_viewer = getpass.getpass("Mật khẩu của viewer_demo: ")
+    token_nv01 = login_api(base_url, "nv01", password_nv01, 3, cfg_sp01.get("client_ip", ""))
+    token_thukho = login_api(base_url, "thukho_demo", password_thukho, 3, cfg_sp02.get("client_ip", ""))
+    token_viewer = login_api(base_url, "viewer_demo", password_viewer, 3, cfg_sp01.get("client_ip", ""))
 
     # SP01: Nhập 20 sản phẩm SP001
     seq1 = get_next_seq_no(cfg_sp01["seq_file"])
@@ -114,7 +97,7 @@ def run_cv02_cv03_suite():
     p1 = build_payload(tid1, "SP001", "NHAP", 20, "SP01")
     enqueue_transaction(
         cfg_sp01["queue_file"],
-        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "username": "nv01", "retries": 0, "payload": p1},
+        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "seq_no": seq1, "username": "nv01", "retries": 0, "payload": p1},
     )
     send_with_retry(cfg_sp01, p1, token_nv01)
 
@@ -124,7 +107,7 @@ def run_cv02_cv03_suite():
     p2 = build_payload(tid2, "SP001", "XUAT", 10, "SP02")
     enqueue_transaction(
         cfg_sp02["queue_file"],
-        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "username": "thukho_demo", "retries": 0, "payload": p2},
+        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "seq_no": seq2, "username": "thukho_demo", "retries": 0, "payload": p2},
     )
     send_with_retry(cfg_sp02, p2, token_thukho)
 
@@ -140,7 +123,7 @@ def run_cv02_cv03_suite():
     pv = build_payload(tid_v, "SP001", "NHAP", 5, "SP01")
     enqueue_transaction(
         cfg_sp01["queue_file"],
-        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "username": "viewer_demo", "retries": 0, "payload": pv},
+        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "seq_no": seq_v, "username": "viewer_demo", "retries": 0, "payload": pv},
     )
     send_with_retry(cfg_sp01, pv, token_viewer)
 
@@ -150,7 +133,7 @@ def run_cv02_cv03_suite():
     pnf = build_payload(tid_nf, "SP999", "NHAP", 5, "SP01")
     enqueue_transaction(
         cfg_sp01["queue_file"],
-        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "username": "nv01", "retries": 0, "payload": pnf},
+        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "seq_no": seq_nf, "username": "nv01", "retries": 0, "payload": pnf},
     )
     send_with_retry(cfg_sp01, pnf, token_nv01)
 
@@ -160,12 +143,12 @@ def run_cv02_cv03_suite():
     pos = build_payload(tid_os, "SP003", "XUAT", 500, "SP02")
     enqueue_transaction(
         cfg_sp02["queue_file"],
-        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "username": "thukho_demo", "retries": 0, "payload": pos},
+        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "seq_no": seq_os, "username": "thukho_demo", "retries": 0, "payload": pos},
     )
     send_with_retry(cfg_sp02, pos, token_thukho)
 
     print("\n" + "=" * 75)
-    print(" BƯỚC 4: GIẢ LẬP MẤT MẠNG, TẮT ĐỘT NGỘT GIỮA LÚC GHI & HÀNG ĐỢI RETRY (CV03)")
+    print(" BƯỚC 4: GIẢ LẬP API KHÔNG KẾT NỐI ĐƯỢC & LƯU GIAO DỊCH CHỜ (CV03)")
     print("=" * 75)
     # Chuyển tạm api_base_url sang cổng đóng (5999) để mô phỏng đứt cáp / tường lửa chặn cổng API
     cfg_sp01["api_base_url"] = "http://127.0.0.1:5999"
@@ -177,21 +160,21 @@ def run_cv02_cv03_suite():
     poff1 = build_payload(tid_off1, "SP005", "NHAP", 15, "SP01")
     enqueue_transaction(
         cfg_sp01["queue_file"],
-        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "username": "nv01", "retries": 0, "payload": poff1},
+        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "seq_no": seq_off1, "username": "nv01", "retries": 0, "payload": poff1},
     )
     send_with_retry(cfg_sp01, poff1, token_nv01)
 
-    # 4.2. Giả lập TẮT ĐỘT NGỘT ngay sau khi ghi đĩa (chưa kịp gọi mạng) tại SP02
+    # 4.2. Ghi một giao dịch chờ rồi bỏ qua gửi mạng; đây không phải kill tiến trình thật.
     seq_crash = get_next_seq_no(cfg_sp02["seq_file"])
     tid_crash = generate_txn_id("SP02", seq_crash)
     pcrash = build_payload(tid_crash, "SP006", "XUAT", 4, "SP02")
     enqueue_transaction(
         cfg_sp02["queue_file"],
-        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "username": "thukho_demo", "retries": 0, "payload": pcrash},
+        {"status": "CHO_XAC_NHAN", "created_at": datetime.now().isoformat(), "seq_no": seq_crash, "username": "thukho_demo", "retries": 0, "payload": pcrash},
     )
     write_log(
         cfg_sp02["log_file"],
-        f"[MÔ PHỎNG TẮT ĐỘT NGỘT] Tiến trình SP02 dừng ngay sau khi fsync seq_no={seq_crash} và lưu {tid_crash} vào hàng đợi.",
+        f"[MÔ PHỎNG - CHƯA KILL TIẾN TRÌNH] Đã lưu seq_no={seq_crash} và {tid_crash}; bỏ qua lệnh gửi trong kịch bản này.",
     )
 
     print("\n" + "=" * 75)
@@ -206,8 +189,7 @@ def run_cv02_cv03_suite():
     # Tổng hợp số đo và ghi báo cáo Markdown
     generate_cv03_report(cfg_sp01, cfg_sp02, base_url, token_thukho)
 
-    if api_server:
-        api_server.shutdown()
+    print(f"\n[*] Hoàn tất. Giữ nguyên dữ liệu chạy tại: {run_dir}")
 
 
 def generate_cv03_report(cfg_sp01: dict, cfg_sp02: dict, base_url: str, token: str):
@@ -217,10 +199,12 @@ def generate_cv03_report(cfg_sp01: dict, cfg_sp02: dict, base_url: str, token: s
         "**Hệ thống Quản lý Kho Hàng Thông Minh – Đề tài 22**",
         f"- **Thời điểm thực nghiệm:** `{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}`",
         f"- **Máy chủ đích:** `{base_url}`",
+        "- **Retry trong kịch bản này:** khoảng chờ rút gọn 1 và 2 giây; cấu hình vận hành mặc định là 5, 10, 20 và 60 giây.",
+        "- **Phạm vi:** cần xác nhận riêng API đang ghi vào MySQL thật; script không tự xác minh backend này.",
         "",
         "---",
         "",
-        "## 1. Bảng số đo thực tế tại 2 điểm quét (`SP01` & `SP02`)",
+        "## 1. Bảng số đo của lần chạy tại 2 điểm quét (`SP01` & `SP02`)",
         "",
         "| Điểm quét | IP máy trạm | `seq_no` cuối | Tổng giao dịch | Đã xác nhận (`DA_XAC_NHAN`) | Từ chối nghiệp vụ (`TU_CHOI`) | Tồn đọng (`CHO_XAC_NHAN`) | Tổng số lần gửi lại (Retry) | Độ trễ TB (ms) | Độ trễ Min / Max (ms) |",
         "| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |",
@@ -248,23 +232,24 @@ def generate_cv03_report(cfg_sp01: dict, cfg_sp02: dict, base_url: str, token: s
         for idx, item in enumerate(items, 1):
             p = item["payload"]
             tid = p["txn_id"]
+            seq_no = item.get("seq_no", tid.rsplit("-", 1)[-1])
             st = item["status"]
             ret = item.get("retries", 0)
             lat = item.get("latency_ms", 0.0)
             r = requests.get(f"{base_url}/api/transactions/{tid}", headers=headers, timeout=3)
-            on_server = "Có trên CSDL (200 OK)" if r.status_code == 200 else "Không lưu (Đúng kỳ vọng chặn)"
-            verdict = "KHỚP 100%" if ((st == "DA_XAC_NHAN" and r.status_code == 200) or (st == "TU_CHOI" and r.status_code == 404)) else "LỆCH"
+            on_server = "API trả 200, có bản ghi" if r.status_code == 200 else f"API trả HTTP {r.status_code}"
+            verdict = "KHỚP THEO API" if ((st == "DA_XAC_NHAN" and r.status_code == 200) or (st == "TU_CHOI" and r.status_code == 404)) else "LỆCH"
             reconcile_rows.append(
-                f"| `{sp_id}` | `{idx}` | `{tid}` | `{p['product_code']}` | `{p['txn_type']}` | `{p['quantity']}` | `{st}` | {ret} | `{lat} ms` | {on_server} | **{verdict}** |"
+                f"| `{sp_id}` | `{seq_no}` | `{tid}` | `{p['product_code']}` | `{p['txn_type']}` | `{p['quantity']}` | `{st}` | {ret} | `{lat} ms` | {on_server} | **{verdict}** |"
             )
 
     report_lines.extend([
         "",
         "---",
         "",
-        "## 2. Bảng đối chiếu chi tiết từng `seq_no` giữa Điểm quét và Máy chủ CSDL",
+        "## 2. Bảng đối chiếu chi tiết từng `seq_no` giữa Điểm quét và API",
         "",
-        "| Điểm quét | `seq_no` | Mã giao dịch (`txn_id`) | Mã hàng | Loại | Số lượng | Trạng thái tại Client | Số lần Retry | Độ trễ | Trạng thái trên Máy chủ SV3 | Kết luận đối chiếu |",
+        "| Điểm quét | `seq_no` | Mã giao dịch (`txn_id`) | Mã hàng | Loại | Số lượng | Trạng thái tại Client | Số lần Retry | Độ trễ | Trạng thái API SV3 | Kết luận đối chiếu |",
         "| :---: | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- | :---: |",
     ])
     report_lines.extend(reconcile_rows)
@@ -274,19 +259,17 @@ def generate_cv03_report(cfg_sp01: dict, cfg_sp02: dict, base_url: str, token: s
         "---",
         "",
         "## 3. Nhận xét & Kết luận thực nghiệm (CV03)",
-        "1. **Tính toàn vẹn của `seq_no` và hàng đợi khi tắt đột ngột:**",
-        "   - Mọi thao tác cấp phát `seq_no` (`queue/seq_SP01.txt`, `queue/seq_SP02.txt`) và ghi hàng đợi (`queue/queue_SP01.jsonl`, `queue/queue_SP02.jsonl`) đều thực hiện `flush()` + `os.fsync()` xuống đĩa cứng trước khi gửi mạng.",
-        "   - Khi giả lập tắt đột ngột tiến trình `SP02` ngay sau khi ghi giao dịch `SP006`, lúc khởi động lại điểm quét tự động phát hiện giao dịch `CHO_XAC_NHAN` và đồng bộ lên máy chủ thành công, không mất dữ liệu và không nhảy cóc `seq_no`.",
+        "1. **Hàng đợi và phạm vi mô phỏng dừng tiến trình:**",
+        "   - Nhật ký JSONL nối thêm sự kiện và gọi `fsync()` trước khi gửi mạng; bộ đếm `seq_no` được ghi qua tệp tạm và thay thế nguyên tử.",
+        "   - Kịch bản này chỉ lưu giao dịch chờ rồi bỏ qua bước gửi. Nó không kill tiến trình thật, không kiểm chứng mất điện và không kết luận `seq_no` không có khoảng trống. Cần chạy ca dừng tiến trình riêng để chứng minh các trường hợp đó.",
         "2. **Cơ chế gửi lại có kiểm soát (Exponential Backoff & Idempotency):**",
         "   - Khi mất mạng, điểm quét giữ nguyên `txn_id` ban đầu và chờ tăng dần trước khi thử lại.",
         "   - Khi gửi lặp lại cùng một `txn_id` đã lưu, máy chủ trả về `409 DUPLICATE_TXN`, điểm quét ghi nhận `DA_XAC_NHAN` và tồn kho trên máy chủ không bị cộng/trừ hai lần.",
         "3. **Đối chiếu sau khôi phục mạng:**",
-        "   - Số giao dịch bị mất: **0**.",
-        "   - Số giao dịch bị ghi đúp: **0**.",
-        "   - Toàn bộ các `seq_no` hợp lệ đều khớp 100% giữa nhật ký máy trạm và bảng `warehouse_transactions` trên máy chủ.",
+        "   - Kết quả đếm giao dịch ở bảng trên phản ánh lần chạy này và API đích đã cấu hình; xác nhận MySQL thật bằng truy vấn độc lập trước khi dùng làm kết quả nghiệm thu.",
     ])
 
-    report_path = os.path.join(BASE_DIR, "BaoCao_SoDo_MatMang_SV2.md")
+    report_path = os.path.join(os.path.dirname(cfg_sp01["log_file"]), "BaoCao_SoDo_MatMang_SV2.md")
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(report_lines) + "\n")
     print(f"\n[HOÀN TẤT] Đã xuất báo cáo số đo & đối chiếu CV03 tại: {report_path}")

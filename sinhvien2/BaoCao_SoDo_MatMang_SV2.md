@@ -1,5 +1,8 @@
 # BÁO CÁO SỐ ĐO THỰC NGHIỆM, XỬ LÝ MẤT MẠNG & ĐỐI CHIẾU SEQ_NO (SV2 - CV03)
 **Hệ thống Quản lý Kho Hàng Thông Minh – Đề tài 22**
+
+> **Lưu ý phiên bản:** Đây là biên bản lịch sử ngày 09/11/2026, được tạo bằng phiên bản mã trước khi hoàn thiện nhật ký hàng đợi và kịch bản kiểm thử. Lần chạy cũ dùng API ở cổng 5000; cấu hình hiện hành đã chuyển về 8080 theo giao ước SV1. Mục mô tả “tắt đột ngột” chỉ là mô phỏng trong script, không phải kill tiến trình thật. Các số liệu dưới đây không xác nhận hành vi của mã hiện tại; cần tạo biên bản mới sau khi chạy lại trên API/MySQL đã xác minh.
+
 - **Thời điểm thực nghiệm:** `2026-11-09 10:25:08`
 - **Máy chủ đích:** `http://127.0.0.1:5000`
 

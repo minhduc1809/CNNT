@@ -6,7 +6,7 @@ import json
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
-BASE_URL = "http://localhost:5000"
+BASE_URL = "http://localhost:8080"
 
 class Colors:
     GREEN = "\033[92m"
