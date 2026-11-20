@@ -5,8 +5,8 @@ Chỉ ĐỌC dữ liệu (queue_SP0x.jsonl của điểm quét và bảng MySQL)
 Dùng tài khoản MySQL wh_store (chỉ có quyền SELECT) lấy từ config.json của máy chủ API.
 
 Chạy tại thư mục CNNT (cmd):
-  python SV4_KiemThu\\doi_chieu_sv4.py
-Kết quả: thư mục SV4_KiemThu\\ket_qua_doi_chieu\\<ngày giờ>\\ gồm doi_chieu.md, client.csv, chi_co_tren_may_chu.csv, ton_kho.csv
+  python KiemThu_DoiChieu_NguyenManhDung\\doi_chieu_sv4.py
+Kết quả: thư mục KiemThu_DoiChieu_NguyenManhDung\\ket_qua_doi_chieu\\<ngày giờ>\\ gồm doi_chieu.md, client.csv, chi_co_tren_may_chu.csv, ton_kho.csv
 Cần: pip install pymysql   (máy chủ API đã dùng sẵn)
 """
 import argparse, csv, json, os, re, sys
@@ -191,9 +191,9 @@ if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
-    ap.add_argument("--queue-dir", default=os.path.join("SV2_DiemQuet_HangDoi", "queue"))
-    ap.add_argument("--config", default=os.path.join("SV3_MayChu_CSDL_API", "04_DICH_VU_API", "config.json"))
-    ap.add_argument("--seed", default=os.path.join("SV3_MayChu_CSDL_API", "01_CSDL_SQL", "02_insert_sample_data.sql"))
+    ap.add_argument("--queue-dir", default=os.path.join("DiemQuet_HangDoi_TranLeMinhDuc", "queue"))
+    ap.add_argument("--config", default=os.path.join("MayChu_CSDL_API_PhamCongManh", "04_DICH_VU_API", "config.json"))
+    ap.add_argument("--seed", default=os.path.join("MayChu_CSDL_API_PhamCongManh", "01_CSDL_SQL", "02_insert_sample_data.sql"))
     ap.add_argument("--ngay-tai", default="20261115", help="ngày (yyyymmdd) đã chạy thử tải tai_thu_sv4")
-    ap.add_argument("--ra", default=os.path.join("SV4_KiemThu", "ket_qua_doi_chieu"))
+    ap.add_argument("--ra", default=os.path.join("KiemThu_DoiChieu_NguyenManhDung", "ket_qua_doi_chieu"))
     chay(ap.parse_args())

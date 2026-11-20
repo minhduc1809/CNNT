@@ -4,11 +4,11 @@ tao_v2_sql.py (SV4) - Tao BAN SAO cua cac file SQL cua SV3, doi ten CSDL thanh s
 
 Muc dich: thu ban cap nhat cua SV3 (dang nhap co mat khau) tren CSDL RIENG,
 KHONG dung vao CSDL smart_warehouse dang giu minh chung V5.
-Chi DOC cac file SQL goc; chi GHI mot file moi trong SV4_KiemThu.
+Chi DOC cac file SQL goc; chi GHI mot file moi trong KiemThu_DoiChieu_NguyenManhDung.
 
-Chay tai thu muc goc cua repo da gop (noi co thu muc SV3_MayChu_CSDL_API):
-    python SV4_KiemThu\\tao_v2_sql.py
-Ket qua: SV4_KiemThu\\smart_warehouse_v2_all.sql  (mo bang MySQL Workbench roi chay ca file).
+Chay tai thu muc goc cua repo da gop (noi co thu muc MayChu_CSDL_API_PhamCongManh):
+    python KiemThu_DoiChieu_NguyenManhDung\\tao_v2_sql.py
+Ket qua: KiemThu_DoiChieu_NguyenManhDung\\smart_warehouse_v2_all.sql  (mo bang MySQL Workbench roi chay ca file).
 """
 import os
 import re
@@ -27,7 +27,7 @@ THU_TU = [
 
 def main():
     goc = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
-    thu_muc_sql = os.path.join(goc, "SV3_MayChu_CSDL_API", "01_CSDL_SQL")
+    thu_muc_sql = os.path.join(goc, "MayChu_CSDL_API_PhamCongManh", "01_CSDL_SQL")
     if not os.path.isdir(thu_muc_sql):
         print("Khong thay", thu_muc_sql, "- hay chay lenh tai thu muc goc cua repo.")
         return 1
@@ -58,7 +58,7 @@ def main():
         print("LOI: van con ten CSDL cu trong file ket qua. Khong ghi file.")
         return 1
 
-    ra_dir = os.path.join(goc, "SV4_KiemThu")
+    ra_dir = os.path.join(goc, "KiemThu_DoiChieu_NguyenManhDung")
     os.makedirs(ra_dir, exist_ok=True)
     ra = os.path.join(ra_dir, "smart_warehouse_v2_all.sql")
     with open(ra, "w", encoding="utf-8", newline="\n") as f:

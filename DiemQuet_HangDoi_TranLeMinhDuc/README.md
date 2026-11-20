@@ -21,7 +21,7 @@ Cần Python 3.10 trở lên và các thư viện trong `requirements.txt`:
 
 ```powershell
 cd E:\CNNT
-python -m pip install -r SV2_DiemQuet_HangDoi\requirements.txt
+python -m pip install -r DiemQuet_HangDoi_TranLeMinhDuc\requirements.txt
 ```
 
 Phân hệ SV2 cần API SV3 chạy và đăng nhập được. CSDL MySQL phải được xác nhận đang hoạt động trước khi nghiệm thu; nếu API SV3 đang dùng chế độ in-memory thì kết quả không được coi là kết quả MySQL.
@@ -31,14 +31,14 @@ Phân hệ SV2 cần API SV3 chạy và đăng nhập được. CSDL MySQL phả
 Cấu hình mặc định trỏ tới máy chủ theo bảng IP nhóm `192.168.10.10:8080`. Chạy mỗi điểm quét trên máy/VM đã có IP nguồn tương ứng và nhập tài khoản, mật khẩu do SV3 cấp:
 
 ```powershell
-python SV2_DiemQuet_HangDoi\scanner.py SV2_DiemQuet_HangDoi\config_sp01.json
-python SV2_DiemQuet_HangDoi\scanner.py SV2_DiemQuet_HangDoi\config_sp02.json
+python DiemQuet_HangDoi_TranLeMinhDuc\scanner.py DiemQuet_HangDoi_TranLeMinhDuc\config_sp01.json
+python DiemQuet_HangDoi_TranLeMinhDuc\scanner.py DiemQuet_HangDoi_TranLeMinhDuc\config_sp02.json
 ```
 
 Nếu cần chỉ định máy chủ khác, dùng `--url` hoặc biến môi trường `API_BASE_URL`:
 
 ```powershell
-python SV2_DiemQuet_HangDoi\scanner.py SV2_DiemQuet_HangDoi\config_sp01.json --url http://<IP_MAY_CHU>:8080
+python DiemQuet_HangDoi_TranLeMinhDuc\scanner.py DiemQuet_HangDoi_TranLeMinhDuc\config_sp01.json --url http://<IP_MAY_CHU>:8080
 ```
 
 Để chạy thử trên cùng máy, có thể dùng loopback; khi URL là loopback, scanner không gắn IP nguồn `.20.11`/`.20.12`. Ca này chỉ kiểm tra chức năng phần mềm, không chứng minh kết nối giữa các máy hoặc chính sách firewall.
@@ -71,18 +71,18 @@ Các script kiểm thử được thiết kế để gọi API đang chạy và 
 
 ```powershell
 $env:API_BASE_URL = 'http://<IP_MAY_CHU>:8080'
-python SV2_DiemQuet_HangDoi\thu_mat_mang_va_doi_chieu.py
-python SV2_DiemQuet_HangDoi\thu_dong_thoi_xuat.py --base-url http://<IP_MAY_CHU>:8080
+python DiemQuet_HangDoi_TranLeMinhDuc\thu_mat_mang_va_doi_chieu.py
+python DiemQuet_HangDoi_TranLeMinhDuc\thu_dong_thoi_xuat.py --base-url http://<IP_MAY_CHU>:8080
 ```
 
-Kịch bản CV02/CV03 hỏi riêng mật khẩu của từng tài khoản và tạo thư mục chạy riêng trong `SV2_DiemQuet_HangDoi/logs/runs/`; nó không xóa hàng đợi/log có sẵn.
+Kịch bản CV02/CV03 hỏi riêng mật khẩu của từng tài khoản và tạo thư mục chạy riêng trong `DiemQuet_HangDoi_TranLeMinhDuc/logs/runs/`; nó không xóa hàng đợi/log có sẵn.
 
 Kịch bản mất kết nối chuyển tạm URL tới cổng đóng; đây là mô phỏng lỗi kết nối. Dòng log “mô phỏng dừng tiến trình” không phải thao tác kill tiến trình thật. Muốn kết luận về tắt đột ngột, cần chạy một ca riêng: ghi giao dịch vào hàng đợi, kết thúc tiến trình thật trước khi gửi, khởi động lại và đối chiếu bản ghi với API/CSDL.
 
 ### Mô phỏng IP trên WSL
 
 ```powershell
-python SV2_DiemQuet_HangDoi\chay_thu_2_may_wsl.py
+python DiemQuet_HangDoi_TranLeMinhDuc\chay_thu_2_may_wsl.py
 ```
 
 Script gắn các IP nguồn giả lập lên cùng giao diện `eth0` trong một WSL. Ping các IP trên cùng máy không chứng minh hai máy độc lập, định tuyến giữa VLAN hay firewall thật. Không mô tả kết quả này là kiểm thử hai máy thật. Để chứng minh tiêu chí mạng, chạy SP01/SP02 trên hai máy hoặc VM riêng, chụp IP nguồn/đích, ping và gọi API qua IP máy chủ.

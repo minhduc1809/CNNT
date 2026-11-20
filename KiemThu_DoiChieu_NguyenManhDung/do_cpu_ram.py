@@ -5,7 +5,7 @@ Hai lệnh:
   1) Ghi số đo mỗi 1 giây cho tới khi bấm Ctrl+C:
        python do_cpu_ram.py ghi --ra MinhChung\\MC-MR-05_cpu_ram.csv
   2) Sau khi thử tải xong, tính trung bình và lớn nhất riêng cho từng kịch bản (2 điểm, 4 điểm):
-       python do_cpu_ram.py tong-hop --csv MinhChung\\MC-MR-05_cpu_ram.csv --kq SV4_KiemThu\\ket_qua\\<thư mục lần chạy>
+       python do_cpu_ram.py tong-hop --csv MinhChung\\MC-MR-05_cpu_ram.csv --kq KiemThu_DoiChieu_NguyenManhDung\\ket_qua\\<thư mục lần chạy>
 
 Đo: CPU và RAM của cả máy; CPU và RAM của riêng 3 nhóm tiến trình: app.py (máy chủ API),
 mysqld (CSDL), tai_thu (chương trình sinh tải). CPU tính theo % của TOÀN BỘ máy (0-100).

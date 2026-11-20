@@ -19,7 +19,7 @@ import requests
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(BASE_DIR)
-API_DIR = os.path.join(REPO_ROOT, "SV3_MayChu_CSDL_API", "04_DICH_VU_API")
+API_DIR = os.path.join(REPO_ROOT, "MayChu_CSDL_API_PhamCongManh", "04_DICH_VU_API")
 if API_DIR not in sys.path:
     sys.path.insert(0, API_DIR)
 

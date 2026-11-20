@@ -32,9 +32,9 @@ Theo phân công đề tài, SV3 chịu trách nhiệm toàn bộ tầng máy ch
 ## 2. CẤU TRÚC THƯ MỤC BÀN GIAO
 
 ```text
-SV3_MayChu_CSDL_API/
-├── README.md                              <- Tài liệu hướng dẫn chi tiết toàn bộ phần việc SV3
-├── (Báo cáo chính thức đặt tại docs/BaoCaoCaNhan_SV3_PhamCongManh_B24DCCC193.docx)
+MayChu_CSDL_API_PhamCongManh/
+├── README.md                              <- Tài liệu hướng dẫn chi tiết phần việc Máy chủ, CSDL & API (Phạm Công Mạnh)
+├── (Báo cáo chính thức đặt tại docs/BaoCaoCaNhan_PhamCongManh_B24DCCC193.docx)
 │
 ├── 01_CSDL_SQL/                           <- Toàn bộ script CSDL MySQL
 │   ├── 01_create_database.sql             <- Khởi tạo CSDL smart_warehouse và 5 bảng chính
@@ -190,7 +190,7 @@ Toàn bộ mật khẩu đã được băm SHA-256 lưu trong CSDL. Khi kiểm t
 ### Bước 1: Khởi tạo/Làm mới CSDL MySQL (Nếu cần dựng lại từ đầu)
 Mở PowerShell và chạy lần lượt các file SQL theo thứ tự:
 ```powershell
-cd "SV3_MayChu_CSDL_API\01_CSDL_SQL"
+cd "MayChu_CSDL_API_PhamCongManh\01_CSDL_SQL"
 
 # 1. Tạo CSDL & bảng
 Get-Content 01_create_database.sql -Raw | & "C:\Program Files\MySQL\MySQL Server 9.3\bin\mysql.exe" -u root -p smart_warehouse
@@ -210,7 +210,7 @@ Get-Content 06_sync_sv1_sv3_aliases.sql -Raw | & "C:\Program Files\MySQL\MySQL S
 
 ### Bước 2: Khởi động API Server
 ```powershell
-cd "SV3_MayChu_CSDL_API\04_DICH_VU_API"
+cd "MayChu_CSDL_API_PhamCongManh\04_DICH_VU_API"
 python app.py
 ```
 *Server sẽ khởi động và lắng nghe tại `http://0.0.0.0:8080`.*
@@ -218,7 +218,7 @@ python app.py
 ### Bước 3: Chạy bộ kiểm thử tự động 26 ca kiểm thử
 Mở một cửa sổ PowerShell mới:
 ```powershell
-cd "SV3_MayChu_CSDL_API\04_DICH_VU_API"
+cd "MayChu_CSDL_API_PhamCongManh\04_DICH_VU_API"
 python test_all_features.py
 ```
 👉 **Kết quả kỳ vọng:** Đạt chuẩn **26/26 ca PASS 100%**, bao gồm xác thực sai mật khẩu (401), phân quyền RBAC (403), nhập/xuất kho (201), chống trùng mã giao dịch (409), chống âm kho (400), kiểm tra dữ liệu 100 mặt hàng.
@@ -229,7 +229,7 @@ python test_all_features.py
 Get-ScheduledTask -TaskName "WH-SaoLuu-CSDL" | Get-ScheduledTaskInfo
 
 # 2. Chạy thử nghiệm quy trình khôi phục và đối chiếu tự động
-cd "SV3_MayChu_CSDL_API\02_BACKUP_RESTORE"
+cd "MayChu_CSDL_API_PhamCongManh\02_BACKUP_RESTORE"
 .\03_khoi_phuc_va_doi_chieu.ps1 -SaoLuuMoiTruoc
 ```
 👉 **Kết quả:** Màn hình sẽ in bảng đối chiếu chi tiết toàn bộ các bảng CSDL gốc và CSDL khôi phục đều khớp 100%, thời gian khôi phục đạt chuẩn RTO. File kết quả được tự động lưu vào `C:\SmartWarehouse\evidence\`.

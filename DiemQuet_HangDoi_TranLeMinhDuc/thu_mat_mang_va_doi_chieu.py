@@ -8,7 +8,7 @@ Kịch bản tự động kiểm thử:
   5. Đo đạc độ trễ, tỉ lệ thành công, số lần gửi lại và đối chiếu seq_no với máy chủ (bàn giao SV4).
 
 Cách chạy:
-  PowerShell: $env:API_BASE_URL='http://IP_MAY_CHU:8080'; python SV2_DiemQuet_HangDoi\thu_mat_mang_va_doi_chieu.py
+  PowerShell: $env:API_BASE_URL='http://IP_MAY_CHU:8080'; python DiemQuet_HangDoi_TranLeMinhDuc\thu_mat_mang_va_doi_chieu.py
 """
 
 import json

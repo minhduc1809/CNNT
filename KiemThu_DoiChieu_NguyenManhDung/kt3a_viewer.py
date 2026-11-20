@@ -7,7 +7,7 @@ Kiểm tra 2 tầng:
   - Tầng CSDL: nối MySQL bằng tài khoản wh_viewer (chỉ có quyền SELECT), thử INSERT/UPDATE/DELETE.
 
 Script KHÔNG làm thay đổi dữ liệu: các lệnh ghi dùng mã giả, nếu lỡ được phép thì ROLLBACK.
-Điều kiện: API đang chạy (python SV3_MayChu_CSDL_API/04_DICH_VU_API/app.py), MySQL đang chạy.
+Điều kiện: API đang chạy (python MayChu_CSDL_API_PhamCongManh/04_DICH_VU_API/app.py), MySQL đang chạy.
 Cách chạy:  python kt3a_viewer.py
 Kết quả in ra màn hình và ghi vào MC-KT3a-03.txt (cùng thư mục với script), mỗi dòng có giờ.
 """
