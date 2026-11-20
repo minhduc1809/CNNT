@@ -33,7 +33,7 @@ ping -I 192.168.20.11 -c 2 192.168.10.10
 echo ""
 ping -I 192.168.20.12 -c 2 192.168.10.10
 
-cd /mnt/e/CNNT/sinh-vien-3/04_DICH_VU_API
+cd /mnt/e/CNNT/SV3_MayChu_CSDL_API/04_DICH_VU_API
 python3 app.py > /tmp/srv_kho_access.log 2>&1 &
 SRV_PID=$!
 sleep 2
@@ -42,7 +42,7 @@ echo ""
 echo "=== [3] ĐIỂM QUÉT SP01 (192.168.20.11) & SP02 (192.168.20.12) GỬI GIAO DỊCH TỚI http://192.168.10.10:8080 ==="
 python3 - << 'PYEOF'
 import sys, time, getpass
-sys.path.insert(0, "/mnt/e/CNNT/sinhvien2")
+sys.path.insert(0, "/mnt/e/CNNT/SV2_DiemQuet_HangDoi")
 from scanner import get_http_session, build_payload, generate_txn_id, login_api
 
 srv_url = "http://192.168.10.10:8080"

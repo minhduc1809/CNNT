@@ -191,9 +191,9 @@ if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
-    ap.add_argument("--queue-dir", default=os.path.join("diem-quet", "queue"))
-    ap.add_argument("--config", default=os.path.join("sinh-vien-3", "04_DICH_VU_API", "config.json"))
-    ap.add_argument("--seed", default=os.path.join("sinh-vien-3", "01_CSDL_SQL", "02_insert_sample_data.sql"))
+    ap.add_argument("--queue-dir", default=os.path.join("SV2_DiemQuet_HangDoi", "queue"))
+    ap.add_argument("--config", default=os.path.join("SV3_MayChu_CSDL_API", "04_DICH_VU_API", "config.json"))
+    ap.add_argument("--seed", default=os.path.join("SV3_MayChu_CSDL_API", "01_CSDL_SQL", "02_insert_sample_data.sql"))
     ap.add_argument("--ngay-tai", default="20261115", help="ngày (yyyymmdd) đã chạy thử tải tai_thu_sv4")
     ap.add_argument("--ra", default=os.path.join("SV4_KiemThu", "ket_qua_doi_chieu"))
     chay(ap.parse_args())

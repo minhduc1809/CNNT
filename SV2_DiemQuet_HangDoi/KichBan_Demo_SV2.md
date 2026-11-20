@@ -18,8 +18,8 @@
 Mở API SV3 theo hướng dẫn của SV3, sau đó chạy từng điểm quét:
 
 ```powershell
-python sinhvien2\scanner.py sinhvien2\config_sp01.json
-python sinhvien2\scanner.py sinhvien2\config_sp02.json
+python SV2_DiemQuet_HangDoi\scanner.py SV2_DiemQuet_HangDoi\config_sp01.json
+python SV2_DiemQuet_HangDoi\scanner.py SV2_DiemQuet_HangDoi\config_sp02.json
 ```
 
 Nhập username và mật khẩu. Scanner phải dừng nếu API không đăng nhập được hoặc không trả token. Nêu địa chỉ đích đang dùng. Nếu địa chỉ là loopback, không giới thiệu ca này như kết nối hai máy.
@@ -53,7 +53,7 @@ Không suy luận rằng tồn kho không đổi chỉ từ thông báo client; 
 Chạy trong CSDL thử nghiệm với số lượng xuất mỗi điểm lớn hơn một nửa tồn ban đầu:
 
 ```powershell
-python sinhvien2\thu_dong_thoi_xuat.py --base-url http://<IP_MAY_CHU>:8080 --code SP001 --qty 70
+python SV2_DiemQuet_HangDoi\thu_dong_thoi_xuat.py --base-url http://<IP_MAY_CHU>:8080 --code SP001 --qty 70
 ```
 
 Nhập mật khẩu thủ kho khi được hỏi. Kết quả chỉ đạt nếu một yêu cầu được nhận, một yêu cầu bị từ chối do thiếu tồn và tồn cuối bằng tồn đầu trừ đúng một lần xuất. Lưu log mới có thời gian, rồi xác nhận kết quả trong MySQL.
